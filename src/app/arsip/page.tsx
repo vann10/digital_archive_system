@@ -268,7 +268,7 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
                 </TableHead>
                 <TableHead className="w-[140px] font-semibold text-slate-700 h-11">
                   <div className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" /> Tgl Input
+                     Tgl Input
                   </div>
                 </TableHead>
                 <TableHead className="w-[100px] font-semibold text-slate-700 h-11 text-center">
