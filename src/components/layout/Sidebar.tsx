@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation'; // Tambah useRouter
 import { cn } from '../../lib/utils';
 import {
   LayoutDashboard,
@@ -55,6 +55,7 @@ const menuItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter(); // Hook untuk navigasi manual
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
 
@@ -64,6 +65,7 @@ export function Sidebar() {
   };
 
   const handleMenuClick = (item: typeof menuItems[0]) => {
+    // KONDISI 1: Jika item punya submenu (folder)
     if (item.submenu) {
       if (isCollapsed) {
         setIsCollapsed(false);
@@ -71,6 +73,11 @@ export function Sidebar() {
       } else {
         setOpenSubmenu(openSubmenu === item.title ? null : item.title);
       }
+    } 
+    // KONDISI 2: Jika item adalah link biasa (Dashboard, Daftar Arsip)
+    else {
+      // PENTING: Lakukan navigasi manual karena elemennya div onClick
+      router.push(item.href);
     }
   };
 
@@ -81,47 +88,34 @@ export function Sidebar() {
         isCollapsed ? "w-20" : "w-64"
       )}
     >
-      {/* =========================================================
-          1. HEADER (MODIFIKASI SWAP ICON/TOGGLE)
-      ========================================================= */}
+      {/* 1. HEADER */}
       <div className={cn(
         "h-[70px] flex items-center px-4 border-b border-slate-800/50 relative transition-all duration-300",
-        isCollapsed ? "justify-center" : "justify-between group" // 'group' hanya dipakai saat expanded untuk hover toggle kanan
+        isCollapsed ? "justify-center" : "justify-between group"
       )}>
-
         {isCollapsed ? (
-          // --- KONDISI 1: MINIMIZED (Logo berubah jadi Toggle saat Hover) ---
           <button
             onClick={toggleSidebar}
             className="relative group/mini flex items-center justify-center w-10 h-10 rounded-xl transition-all"
           >
-            {/* A. LOGO DEFAULT (Hilang saat hover) */}
             <div className="absolute inset-0 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/20 transition-all duration-300 transform scale-100 opacity-100 group-hover/mini:scale-90 group-hover/mini:opacity-0">
                <Archive className="w-6 h-6 text-white" />
             </div>
-
-            {/* B. TOMBOL TOGGLE (Muncul saat hover, menggantikan posisi logo) */}
             <div className="absolute inset-0 bg-slate-800 rounded-xl border border-slate-600 flex items-center justify-center transition-all duration-300 transform scale-90 opacity-0 group-hover/mini:scale-100 group-hover/mini:opacity-100 text-slate-300 hover:text-white hover:border-blue-500 hover:bg-slate-700">
                <ChevronRight size={24} />
             </div>
           </button>
         ) : (
-          // --- KONDISI 2: EXPANDED (Tampilan Normal) ---
           <>
              <div className="flex items-center gap-3 w-full">
-                {/* Logo Tetap */}
                 <div className="flex-shrink-0 w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/20">
                   <Archive className="w-6 h-6 text-white" />
                 </div>
-                
-                {/* Teks Judul */}
                 <div className="flex flex-col overflow-hidden whitespace-nowrap">
                   <span className="font-bold text-base tracking-wide text-slate-100">Arsip Digital</span>
                   <span className="text-[10px] text-slate-400 font-medium tracking-wider uppercase">Dinas Sosial</span>
                 </div>
              </div>
-
-             {/* Tombol Toggle (<) di Kanan (Muncul saat header di-hover) */}
              <button
                 onClick={toggleSidebar}
                 className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-all duration-200"
@@ -132,8 +126,7 @@ export function Sidebar() {
         )}
       </div>
 
-
-      {/* 2. MENU NAVIGASI (Sama seperti sebelumnya) */}
+      {/* 2. MENU NAVIGASI */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden py-6 px-3 space-y-2">
         {menuItems.map((item, index) => {
           const isActive = pathname === item.href || (item.submenu && pathname.startsWith(item.href));
@@ -200,7 +193,7 @@ export function Sidebar() {
         })}
       </div>
 
-      {/* 3. FOOTER (Sama seperti sebelumnya) */}
+      {/* 3. FOOTER */}
       <div className="p-4 border-t border-slate-800/50 bg-[#0F172A]">
         <div className={cn(
           "flex items-center transition-all duration-300",
@@ -219,7 +212,7 @@ export function Sidebar() {
           </div>
 
           {!isCollapsed && (
-             <button className="ml-auto text-slate-500 hover:text-red-400 transition-colors">
+             <button className="ml-auto text-slate-500 hover:text-red-400 transition-colors" title="Logout">
                <LogOut size={18} />
              </button>
           )}
