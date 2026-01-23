@@ -157,16 +157,61 @@ export function ArsipTable({
     );
   };
 
+  // --- LOGIKA GROUPING DINAMIS ---
+  // Mengelompokkan kolom berdasarkan properti 'group' dari database
+  const dynamicGroups = dynamicSchema.reduce((acc: { name: string; count: number }[], col) => {
+    // Gunakan properti 'group' atau 'kelompok', fallback ke 'Data Spesifik'
+    const groupName = col.group || col.kelompok || "Data Spesifik";
+    const lastGroup = acc[acc.length - 1];
+
+    if (lastGroup && lastGroup.name === groupName) {
+      lastGroup.count += 1;
+    } else {
+      acc.push({ name: groupName, count: 1 });
+    }
+    return acc;
+  }, []);
+
   return (
-    <div className="bg-white flex-1 min-h-0 relative overflow-auto">
+    <div className="bg-white flex-1 min-h-0 -mb-6.5 relative overflow-auto">
       <Table
         className={cn(
           "w-full",
           isJenisSelected ? "table-fixed w-max min-w-full border-separate border-spacing-0" : "min-w-full"
         )}
       >
-        <TableHeader className="sticky top-0 z-20 shadow-sm bg-slate-50">
-          <TableRow className="border-b border-slate-200 hover:bg-slate-50">
+        <TableHeader className={cn("sticky z-20 shadow-sm bg-slate-50", isJenisSelected ? "top-0" : "top-0")}>
+          
+          {/* --- HEADER GRUP DINAMIS --- */}
+          {isJenisSelected && (
+            <TableRow className="border-b border-slate-200 bg-slate-100/80 hover:bg-slate-100/80 h-8">
+              {/* Grup Data Utama (Fixed 6 Kolom: No, Judul, Nomor, Tgl, Tahun, Jenis) */}
+              <TableHead 
+                colSpan={6} 
+                className="text-center font-bold text-slate-600 border-r border-slate-300/50 h-8 text-[10px] uppercase tracking-wider bg-slate-100/80 left-0 z-40 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]"
+              >
+                Data Utama Arsip
+              </TableHead>
+
+              {/* Grup Data Spesifik (Dari Database) */}
+              {dynamicGroups.map((group, idx) => (
+                <TableHead 
+                  key={idx}
+                  colSpan={group.count} 
+                  className="text-center font-bold text-blue-700 border-r border-blue-200/50 h-8 text-[10px] uppercase tracking-wider bg-blue-50/80 whitespace-nowrap overflow-hidden text-ellipsis px-2"
+                  title={group.name}
+                >
+                  {group.name}
+                </TableHead>
+              ))}
+
+              {/* Grup Aksi */}
+              <TableHead className="bg-white sticky right-0 z-40 border-l border-slate-200 h-8" />
+            </TableRow>
+          )}
+
+          {/* --- HEADER KOLOM --- */}
+          <TableRow className={cn("border-b border-slate-200 hover:bg-slate-50", isJenisSelected && "sticky top-8")}>
             {/* NO - Sticky Left */}
             <TableHead
               className="font-bold text-slate-700 h-11 bg-slate-50 sticky left-0 z-30 text-center border-r border-slate-100"
@@ -279,11 +324,11 @@ export function ArsipTable({
               return (
                 <TableRow
                   key={item.id}
-                  className="group border-b border-slate-100 transition-colors hover:bg-blue-50/50 even:bg-slate-50"
+                  className="group border-b border-slate-100 transition-colors hover:bg-blue-50/50 even:bg-slate-100"
                 >
                   {/* NO - Sticky Left (UBAH KE SOLID COLOR) */}
                   <TableCell 
-                    className="text-center text-slate-500 font-mono text-xs sticky left-0 bg-white group-hover:bg-blue-50 group-even:bg-slate-50 z-10 border-r border-slate-100/50"
+                    className="text-center text-slate-500 font-mono text-xs sticky left-0 bg-white group-hover:bg-blue-50 group-even:bg-slate-100 z-10 border-r border-slate-100/50"
                     style={getWidthStyle("no")}
                   >
                     {(page - 1) * itemsPerPage + index + 1}
@@ -361,7 +406,7 @@ export function ArsipTable({
                   ))}
 
                   {/* Aksi - Sticky Right (UBAH KE SOLID COLOR) */}
-                  <TableCell className="text-right pr-4 sticky right-0 bg-white group-even:bg-slate-50 group-hover:bg-blue-50 shadow-[inset_10px_0_10px_-10px_rgba(0,0,0,0.05)] transition-colors z-10 border-l border-slate-100/50">
+                  <TableCell className="text-right pr-4 sticky right-0 bg-white group-even:bg-slate-100 group-hover:bg-blue-50 shadow-[inset_10px_0_10px_-10px_rgba(0,0,0,0.05)] transition-colors z-10 border-l border-slate-100/50">
                     <div className="flex items-center justify-end gap-1">
                       <ArsipDetailDialog item={item} />
 

@@ -237,13 +237,13 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
             <strong>{meta.totalItems}</strong> Arsip
           </div>
 
-          <div className="flex gap-2 items-center">
+          <div className="flex -mb-5 py-2 gap-2 items-center">
             <Button
               variant="outline"
               size="sm"
               disabled={page <= 1}
               asChild={page > 1}
-              className="h-9 px-3 text-xs border-slate-200 hover:bg-white hover:text-blue-600 rounded-lg transition-all"
+              className="h-9 px-3 text-xs border-slate-400 hover:bg-gray-500 hover:text-slate-50 rounded-lg transition-all"
             >
               {page > 1 ? (
                 <Link
@@ -252,11 +252,11 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
                   }&q=${search}&jenis=${jenisId}&tahun=${tahun}`}
                   className="flex items-center gap-1"
                 >
-                  <ChevronLeft className="h-3.5 w-3.5" /> Sebelumnya
+                  <ChevronLeft className="h-3.5 w-3.5" /> Prev
                 </Link>
               ) : (
-                <span className="flex items-center gap-1 opacity-50">
-                  <ChevronLeft className="h-3.5 w-3.5" /> Sebelumnya
+                <span className="flex items-center pr-1 gap-1 text-black font-medium">
+                  <ChevronLeft className="h-3.5 w-3.5" /> Prev
                 </span>
               )}
             </Button>
@@ -266,7 +266,7 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
               size="sm"
               disabled={page >= meta.totalPages}
               asChild={page < meta.totalPages}
-              className="h-9 px-3 text-xs border-slate-200 hover:bg-white hover:text-blue-600 rounded-lg transition-all"
+              className="h-9 px-3 text-xs border-slate-400 hover:bg-gray-500 hover:text-slate-50 rounded-lg transition-all"
             >
               {page < meta.totalPages ? (
                 <Link
@@ -275,11 +275,11 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
                   }&q=${search}&jenis=${jenisId}&tahun=${tahun}`}
                   className="flex items-center gap-1"
                 >
-                  Selanjutnya <ChevronRight className="h-3.5 w-3.5" />
+                  Next <ChevronRight className="h-3.5 w-3.5" />
                 </Link>
               ) : (
-                <span className="flex items-center gap-1 opacity-50">
-                  Selanjutnya <ChevronRight className="h-3.5 w-3.5" />
+                <span className="flex items-center pl-1 gap-1 text-black font-medium">
+                  Next <ChevronRight className="h-3.5 w-3.5" />
                 </span>
               )}
             </Button>
