@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "../../db";
-import { jenisArsip } from "../../db/schema";
+import { jenisArsip, arsip } from "../../db/schema";
 import { eq } from "drizzle-orm";
 
 // Helper untuk membuat kode unik (slug) dari nama
@@ -120,6 +120,8 @@ export async function saveJenisArsip(prevState: any, formData: FormData) {
 
 export async function deleteJenisArsip(id: number) {
   try {
+
+    await db.delete(arsip).where(eq(arsip.jenisArsipId, id));
     // Hard Delete
     await db.delete(jenisArsip).where(eq(jenisArsip.id, id));
 

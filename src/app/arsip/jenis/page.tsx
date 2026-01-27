@@ -1,33 +1,17 @@
 import Link from "next/link";
-import {
-  getJenisArsipList,
-  deleteJenisArsip,
-} from "../../../app/actions/jenis-arsip";
+import { getJenisArsipList } from "../../../app/actions/jenis-arsip";
 import {
   Plus,
   FolderOpen,
-  MoreVertical,
   Pencil,
-  Trash2,
   LayoutTemplate,
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../../../components/ui/dropdown-menu";
 import { Badge } from "../../../components/ui/badge";
+// Import komponen delete yang baru dibuat
+import { DeleteJenisButton } from "../../../components/arsip/delete-button";
 
 export const dynamic = "force-dynamic";
-
-// Example wrapper function
-async function deleteJenisArsipAction(formData: FormData) {
-  "use server";
-  const id = Number(formData.get("id"));
-  await deleteJenisArsip(id); // Your original function
-}
 
 export default async function JenisArsipPage() {
   const jenisList = await getJenisArsipList();
@@ -46,7 +30,7 @@ export default async function JenisArsipPage() {
 
       {/* Grid Container */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* CARD 1: CREATE NEW (Selalu Pertama) */}
+        {/* CARD 1: CREATE NEW */}
         <Link href="/arsip/jenis/form" className="group block h-full">
           <div className="h-full border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center p-8 text-center hover:border-blue-500 hover:bg-blue-50/30 transition-all cursor-pointer min-h-[180px]">
             <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -88,7 +72,7 @@ export default async function JenisArsipPage() {
                 </div>
               </div>
 
-              {/* Action Buttons (Edit & Delete) */}
+              {/* Action Buttons */}
               <div className="flex items-center">
                 <Button
                   asChild
@@ -102,19 +86,8 @@ export default async function JenisArsipPage() {
                   </Link>
                 </Button>
 
-                {/* Delete Form Action - FIXED: Using standard form action with hidden input */}
-                <form action={deleteJenisArsipAction}>
-                  <input type="hidden" name="id" value={item.id} />
-                  <Button
-                    type="submit"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
-                    title="Hapus Jenis"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </form>
+                {/* Gunakan Component Delete Baru */}
+                <DeleteJenisButton id={item.id} />
               </div>
             </div>
 
@@ -125,7 +98,7 @@ export default async function JenisArsipPage() {
               </p>
             </div>
 
-            {/* FOOTER LINK (Go to List filtered by Type) */}
+            {/* FOOTER LINK */}
             <Link
               href={`/arsip?jenis=${item.id}`}
               className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 rounded-b-xl flex items-center justify-between text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-blue-50/30 transition-colors"

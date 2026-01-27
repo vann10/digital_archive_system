@@ -3,20 +3,21 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { 
-  ArrowLeft, 
-  Save, 
-  Layout, 
-  Loader2 
-} from "lucide-react";
+import { ArrowLeft, Save, Layout, Loader2 } from "lucide-react";
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
 import { Textarea } from "../../../../components/ui/textarea";
 import { Card, CardContent } from "../../../../components/ui/card";
-import { Separator } from "../../../../components/ui/separator";
 import { SchemaBuilder, SchemaField } from "../../../../components/arsip/schema-builder";
 import { getJenisArsipDetail, saveJenisArsip } from "../../../../app/actions/jenis-arsip";
+
+// Definisi Kolom Sistem (Data Utama)
+const SYSTEM_FIELDS: SchemaField[] = [
+  { id: "nomorArsip", label: "Nomor Arsip", type: "text", required: true, isSystem: true },
+  { id: "judul", label: "Judul / Perihal", type: "text", required: true, isSystem: true },
+  { id: "tahun", label: "Tahun", type: "number", required: true, isSystem: true },
+];
 
 export default function JenisArsipForm() {
   const router = useRouter();
@@ -27,23 +28,35 @@ export default function JenisArsipForm() {
   const [loading, setLoading] = useState(true);
   const [isSaving, startTransition] = useTransition();
   
-  // Form State
   const [nama, setNama] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
   const [schemaFields, setSchemaFields] = useState<SchemaField[]>([]);
 
-  // Fetch Data jika Edit Mode
   useEffect(() => {
     if (isEditMode) {
       getJenisArsipDetail(Number(id)).then((res) => {
         if (res.jenis) {
           setNama(res.jenis.nama);
           setDeskripsi(res.jenis.deskripsi ?? "");
-          setSchemaFields(res.schema || []);
+          
+          // --- LOGIC PENGGABUNGAN DATA ---
+          const savedSchema = (res.schema || []) as SchemaField[];
+          
+          // Cek apakah data lama sudah punya system fields (judul/tahun/dll) di dalam JSON-nya?
+          // Jika belum (legacy data), kita gabungkan di awal.
+          const hasSystemFields = savedSchema.some(f => f.isSystem);
+          
+          if (!hasSystemFields) {
+            setSchemaFields([...SYSTEM_FIELDS, ...savedSchema]);
+          } else {
+            setSchemaFields(savedSchema);
+          }
         }
         setLoading(false);
       });
     } else {
+      // Jika mode Buat Baru, langsung pasang System Fields default
+      setSchemaFields([...SYSTEM_FIELDS]);
       setLoading(false);
     }
   }, [id, isEditMode]);
@@ -52,11 +65,11 @@ export default function JenisArsipForm() {
     e.preventDefault();
     if (!nama.trim()) return;
 
-    // Siapkan FormData
     const formData = new FormData();
     if (id) formData.append("id", id);
     formData.append("nama", nama);
     formData.append("deskripsi", deskripsi);
+    // Simpan semua fields termasuk urutan System Fields yang baru
     formData.append("schema_json", JSON.stringify(schemaFields));
 
     startTransition(async () => {
@@ -152,7 +165,6 @@ export default function JenisArsipForm() {
         <div className="md:col-span-2">
           <Card className="border-slate-200 shadow-sm min-h-[500px]">
             <CardContent className="p-6">
-               {/* Komponen Builder yang kita buat sebelumnya */}
                <SchemaBuilder 
                   fields={schemaFields} 
                   onChange={setSchemaFields} 
