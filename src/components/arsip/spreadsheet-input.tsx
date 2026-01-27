@@ -236,46 +236,6 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
 
                 {/* BARIS 2: LABEL KOLOM SPESIFIK */}
                 <TableRow className="bg-white border-b border-slate-200 shadow-sm">
-                  
-                  {/* Fixed: Judul */}
-                  <TableHead 
-                    className="relative border-r border-slate-100 h-12 align-middle px-2 select-none"
-                    // PERBAIKAN 2: Gunakan style lengkap (width, minWidth, maxWidth)
-                    style={{ 
-                      width: colWidths['fixed_judul'], 
-                      minWidth: colWidths['fixed_judul'],
-                      maxWidth: colWidths['fixed_judul']
-                    }}
-                  >
-                    Judul Arsip <span className="text-red-500 ml-1">*</span>
-                    <Resizer colId="fixed_judul" />
-                  </TableHead>
-
-                  {/* Fixed: Nomor */}
-                  <TableHead 
-                    className="relative border-r border-slate-100 align-middle px-2 select-none"
-                    style={{ 
-                      width: colWidths['fixed_nomor'],
-                      minWidth: colWidths['fixed_nomor'],
-                      maxWidth: colWidths['fixed_nomor']
-                    }}
-                  >
-                    Nomor Arsip
-                    <Resizer colId="fixed_nomor" />
-                  </TableHead>
-
-                  {/* Fixed: Tahun */}
-                  <TableHead 
-                    className="relative border-r border-slate-300 align-middle px-2 select-none"
-                    style={{ 
-                      width: colWidths['fixed_tahun'],
-                      minWidth: colWidths['fixed_tahun'],
-                      maxWidth: colWidths['fixed_tahun']
-                    }}
-                  >
-                    Tahun
-                    <Resizer colId="fixed_tahun" />
-                  </TableHead>
 
                   {/* Dynamic Columns */}
                   {uniqueGroups.map(groupName => 
@@ -306,30 +266,7 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
                     <TableCell className="text-center text-slate-400 font-mono text-xs border-r border-slate-100 bg-slate-50/30">
                       {index + 1}
                     </TableCell>
-                    
-                    {/* Input Fixed */}
-                    <TableCell className="p-1 border-r border-slate-100 overflow-hidden">
-                      <Input 
-                        className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-blue-500 h-9 rounded-sm bg-transparent w-full"
-                        value={row.judul || ''}
-                        onChange={(e) => handleInputChange(index, 'judul', e.target.value)}
-                      />
-                    </TableCell>
-                    <TableCell className="p-1 border-r border-slate-100 overflow-hidden">
-                      <Input 
-                        className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-blue-500 h-9 rounded-sm bg-transparent w-full"
-                        value={row.nomorArsip || ''}
-                        onChange={(e) => handleInputChange(index, 'nomorArsip', e.target.value)}
-                      />
-                    </TableCell>
-                    <TableCell className="p-1 border-r border-slate-200 bg-slate-50/10 overflow-hidden">
-                      <Input 
-                        type="number"
-                        className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-blue-500 h-9 rounded-sm bg-transparent text-center w-full"
-                        value={row.tahun || ''}
-                        onChange={(e) => handleInputChange(index, 'tahun', e.target.value)}
-                      />
-                    </TableCell>
+
 
                     {/* Input Dynamic */}
                     {uniqueGroups.map(groupName => 
@@ -351,7 +288,7 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
                       <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <button 
                           onClick={() => removeRow(index)}
-                          className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-md"
+                          className="p-2 text-red-500 bg-slate-100 hover:text-white hover:bg-red-500 rounded-md"
                           disabled={rows.length <= 1}
                         >
                           <Trash2 size={16} />

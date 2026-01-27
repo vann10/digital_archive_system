@@ -1,61 +1,59 @@
-'use server'
+"use server";
 
-import { db } from '../../db';
-import { arsip, jenisArsip } from '../../db/schema';
-import { eq } from 'drizzle-orm';
-import { revalidatePath } from 'next/cache';
+import { db } from "../../db";
+import { arsip, jenisArsip } from "../../db/schema";
+import { revalidatePath } from "next/cache";
+import { eq } from "drizzle-orm";
 
-// 1. Ambil Data Jenis Arsip
+// --- GET JENIS ARSIP (Untuk Dropdown) ---
 export async function getJenisArsipWithSchema() {
-  return await db.select().from(jenisArsip).where(eq(jenisArsip.isActive, true));
+  const result = await db.select().from(jenisArsip).where(eq(jenisArsip.isActive, true));
+  return result;
 }
 
-// 2. Simpan Banyak Arsip (Bulk Insert)
-export async function saveBulkArsip(
-  jenisId: number, 
-  rows: any[]
-) {
-  try {
-    // Validasi awal
-    if (!rows || rows.length === 0) {
-      return { success: false, message: "Tidak ada data yang dikirim." };
-    }
+// --- SAVE BULK ARSIP ---
+export async function saveBulkArsip(jenisId: number, data: any[]) {
+  if (!jenisId || !data || data.length === 0) {
+    return { success: false, message: "Data tidak valid." };
+  }
 
-    // Mapping & Sanitasi Data
-    const dataToInsert = rows
-      .filter(row => row.judul && row.judul.trim() !== '') // Hapus baris tanpa judul
-      .map((row) => {
-        // Pisahkan Data Inti vs Data Custom
-        const { judul, tahun, nomorArsip, ...sisaData } = row;
-        
-        return {
-          jenisArsipId: jenisId,
-          judul: judul as string,
-          // Pastikan tahun valid (default ke tahun sekarang jika error/kosong)
-          tahun: parseInt(tahun as string) || new Date().getFullYear(),
-          nomorArsip: (nomorArsip as string) || '-',
-          createdBy: null, // ID Admin (Sementara hardcoded)
-          
-          // Simpan sisa kolom dinamis ke JSON
-          dataCustom: sisaData 
-        };
+  try {
+    const insertData = data.map((row) => {
+      // 1. Ambil Field System (Data Utama)
+      // Gunakan fallback value jika kosong
+      const judul = row.judul || "Tanpa Judul";
+      const nomorArsip = row.nomorArsip || null;
+      const tahun = row.tahun ? parseInt(row.tahun) : new Date().getFullYear();
+
+      // 2. Pisahkan Data Custom
+      // Kita ambil semua key yang BUKAN system field
+      const dataCustom: Record<string, any> = {};
+      const systemKeys = ["judul", "nomorArsip", "tahun", "id"]; // Key yang dikecualikan
+
+      Object.keys(row).forEach((key) => {
+        if (!systemKeys.includes(key)) {
+          dataCustom[key] = row[key];
+        }
       });
 
-    if (dataToInsert.length === 0) {
-      return { success: false, message: "Gagal: Judul Arsip tidak boleh kosong." };
-    }
+      return {
+        jenisArsipId: jenisId,
+        judul,
+        nomorArsip, // Pastikan key di DB schema adalah 'nomorArsip'
+        tahun,
+        dataCustom, // Drizzle akan otomatis stringify ini ke JSON karena mode: 'json'
+        createdAt: new Date().toISOString(),
+      };
+    });
 
-    // Eksekusi Insert ke Database
-    await db.insert(arsip).values(dataToInsert);
+    // 3. Batch Insert
+    await db.insert(arsip).values(insertData);
 
-    // Refresh halaman agar data muncul di list
-    revalidatePath('/dashboard');
-    revalidatePath('/arsip');
+    revalidatePath("/arsip");
+    return { success: true, count: insertData.length };
     
-    return { success: true, message: `Berhasil menyimpan ${dataToInsert.length} data arsip.` };
-
   } catch (error) {
-    console.error("SYSTEM ERROR (Save Arsip):", error);
-    return { success: false, message: "Terjadi kesalahan sistem saat menyimpan ke database." };
+    console.error("Gagal bulk insert:", error);
+    return { success: false, message: "Gagal menyimpan ke database." };
   }
 }

@@ -15,7 +15,7 @@ import { Trash2, FileText } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { ArsipDetailDialog } from "../../components/arsip/arsip-detail-dialog";
 
-// Helper format tanggal
+// ... (Helper formatDate tetap sama) ...
 const formatDate = (dateValue: any) => {
   if (!dateValue) return "-";
   let dateToParse = dateValue;
@@ -48,6 +48,14 @@ export function ArsipTable({
   isJenisSelected,
   onDelete,
 }: ArsipTableProps) {
+  
+  // --- 1. FILTER SCHEMA ---
+  // Kita buang kolom yang sudah ada hardcoded-nya (Judul, Nomor, Tahun)
+  // Agar tidak muncul ganda di bagian dynamic
+  const filteredSchema = dynamicSchema.filter(col => 
+    !['judul', 'nomorArsip', 'tahun'].includes(col.id)
+  );
+
   // --- STATE RESIZING ---
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
   const [resizing, setResizing] = useState<{
@@ -69,8 +77,8 @@ export function ArsipTable({
         if (!next["tahun"]) next["tahun"] = 80;
         if (!next["jenis"]) next["jenis"] = 150;
 
-        // Default widths untuk kolom dinamis
-        dynamicSchema.forEach((col) => {
+        // Gunakan filteredSchema di sini
+        filteredSchema.forEach((col) => {
           if (!next[col.id]) next[col.id] = 220;
         });
         return next;
@@ -78,14 +86,15 @@ export function ArsipTable({
     } else {
       setColumnWidths({});
     }
-  }, [isJenisSelected, dynamicSchema]);
+  }, [isJenisSelected, dynamicSchema]); // Dependensi tetap dynamicSchema agar reaktif
 
-  // --- EVENT LISTENER MOUSE ---
+  // ... (Bagian EVENT LISTENER MOUSE & startResizing tetap sama) ...
+  // ... (Pastikan gunakan filteredSchema jika ada logic looping schema di resize) ...
+  
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!resizing) return;
       const diff = e.clientX - resizing.startX;
-      // Batasi lebar minimum 50px
       const newWidth = Math.max(50, resizing.startWidth + diff); 
       setColumnWidths((prev) => ({ ...prev, [resizing.id]: newWidth }));
     };
@@ -119,7 +128,6 @@ export function ArsipTable({
     setColumnWidths((prev) => {
       let currentWidth = prev[id];
       if (!currentWidth) {
-        // Fallback jika belum ada di state
         if (id === "no") currentWidth = 60;
         else if (id === "judul") currentWidth = 300;
         else if (id === "nomor") currentWidth = 180;
@@ -157,10 +165,8 @@ export function ArsipTable({
     );
   };
 
-  // --- LOGIKA GROUPING DINAMIS ---
-  // Mengelompokkan kolom berdasarkan properti 'group' dari database
-  const dynamicGroups = dynamicSchema.reduce((acc: { name: string; count: number }[], col) => {
-    // Gunakan properti 'group' atau 'kelompok', fallback ke 'Data Spesifik'
+  // --- LOGIKA GROUPING DINAMIS (Gunakan filteredSchema) ---
+  const dynamicGroups = filteredSchema.reduce((acc: { name: string; count: number }[], col) => {
     const groupName = col.group || col.kelompok || "Data Spesifik";
     const lastGroup = acc[acc.length - 1];
 
@@ -185,7 +191,7 @@ export function ArsipTable({
           {/* --- HEADER GRUP DINAMIS --- */}
           {isJenisSelected && (
             <TableRow className="border-b border-slate-200 bg-slate-100/80 hover:bg-slate-100/80 h-8">
-              {/* Grup Data Utama (Fixed 6 Kolom: No, Judul, Nomor, Tgl, Tahun, Jenis) */}
+              {/* Grup Data Utama */}
               <TableHead 
                 colSpan={6} 
                 className="text-center font-bold text-slate-600 border-r border-slate-300/50 h-8 text-[10px] uppercase tracking-wider bg-slate-100/80 left-0 z-40 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]"
@@ -193,7 +199,7 @@ export function ArsipTable({
                 Data Utama Arsip
               </TableHead>
 
-              {/* Grup Data Spesifik (Dari Database) */}
+              {/* Grup Data Spesifik (Looping filteredSchema / dynamicGroups yang sudah difilter) */}
               {dynamicGroups.map((group, idx) => (
                 <TableHead 
                   key={idx}
@@ -205,69 +211,37 @@ export function ArsipTable({
                 </TableHead>
               ))}
 
-              {/* Grup Aksi */}
               <TableHead className="bg-white sticky right-0 z-40 border-l border-slate-200 h-8" />
             </TableRow>
           )}
 
           {/* --- HEADER KOLOM --- */}
           <TableRow className={cn("border-b border-slate-200 hover:bg-slate-50", isJenisSelected && "sticky top-8")}>
-            {/* NO - Sticky Left */}
+            {/* ... (Kolom Hardcoded: No, Judul, Nomor, Tgl, Tahun, Jenis TETAP SAMA) ... */}
             <TableHead
               className="font-bold text-slate-700 h-11 bg-slate-50 sticky left-0 z-30 text-center border-r border-slate-100"
               style={getWidthStyle("no")}
             >
-              No
-              <ResizerHandle id="no" />
+              No <ResizerHandle id="no" />
+            </TableHead>
+            <TableHead className="font-bold text-slate-700 h-11 bg-slate-50 relative border-r border-slate-100" style={getWidthStyle("judul")}>
+              Judul Arsip <ResizerHandle id="judul" />
+            </TableHead>
+            <TableHead className="font-bold text-slate-700 h-11 bg-slate-50 relative border-r border-slate-100" style={getWidthStyle("nomor")}>
+              Nomor Arsip <ResizerHandle id="nomor" />
+            </TableHead>
+            <TableHead className="font-bold text-slate-700 h-11 bg-slate-50 relative border-r border-slate-100" style={getWidthStyle("tgl")}>
+              Tgl Input <ResizerHandle id="tgl" />
+            </TableHead>
+            <TableHead className="font-bold text-slate-700 h-11 bg-slate-50 text-center relative border-r border-slate-100" style={getWidthStyle("tahun")}>
+              Tahun <ResizerHandle id="tahun" />
+            </TableHead>
+            <TableHead className="font-bold text-slate-700 h-11 bg-slate-50 relative border-r border-slate-100" style={getWidthStyle("jenis")}>
+              Jenis <ResizerHandle id="jenis" />
             </TableHead>
 
-            {/* JUDUL ARSIP */}
-            <TableHead
-              className="font-bold text-slate-700 h-11 bg-slate-50 relative border-r border-slate-100"
-              style={getWidthStyle("judul")}
-            >
-              Judul Arsip
-              <ResizerHandle id="judul" />
-            </TableHead>
-
-            {/* NOMOR ARSIP */}
-            <TableHead
-              className="font-bold text-slate-700 h-11 bg-slate-50 relative border-r border-slate-100"
-              style={getWidthStyle("nomor")}
-            >
-              Nomor Arsip
-              <ResizerHandle id="nomor" />
-            </TableHead>
-
-            {/* TGL INPUT */}
-            <TableHead
-              className="font-bold text-slate-700 h-11 bg-slate-50 relative border-r border-slate-100"
-              style={getWidthStyle("tgl")}
-            >
-              Tgl Input
-              <ResizerHandle id="tgl" />
-            </TableHead>
-
-            {/* TAHUN */}
-            <TableHead
-              className="font-bold text-slate-700 h-11 bg-slate-50 text-center relative border-r border-slate-100"
-              style={getWidthStyle("tahun")}
-            >
-              Tahun
-              <ResizerHandle id="tahun" />
-            </TableHead>
-
-            {/* JENIS */}
-            <TableHead
-              className="font-bold text-slate-700 h-11 bg-slate-50 relative border-r border-slate-100"
-              style={getWidthStyle("jenis")}
-            >
-              Jenis
-              <ResizerHandle id="jenis" />
-            </TableHead>
-
-            {/* KOLOM DINAMIS */}
-            {dynamicSchema.map((col: any) => (
+            {/* KOLOM DINAMIS (Gunakan filteredSchema) */}
+            {filteredSchema.map((col: any) => (
               <TableHead
                 key={col.id}
                 className="font-bold text-blue-700 bg-blue-50/80 h-11 whitespace-nowrap border-r border-blue-100 relative"
@@ -278,10 +252,8 @@ export function ArsipTable({
               </TableHead>
             ))}
 
-            {/* AKSI - Sticky Right */}
-            <TableHead 
-              className="text-right font-bold text-slate-700 h-11 pr-6 bg-slate-50 sticky right-0 z-30 shadow-[inset_10px_0_10px_-10px_rgba(0,0,0,0.05)] w-[100px] border-l border-slate-100"
-            >
+            {/* AKSI */}
+            <TableHead className="text-right font-bold text-slate-700 h-11 pr-6 bg-slate-50 sticky right-0 z-30 shadow-[inset_10px_0_10px_-10px_rgba(0,0,0,0.05)] w-[100px] border-l border-slate-100">
               Aksi
             </TableHead>
           </TableRow>
@@ -290,132 +262,72 @@ export function ArsipTable({
         <TableBody>
           {data.length === 0 ? (
             <TableRow>
-              <TableCell
-                colSpan={8 + dynamicSchema.length}
-                className="h-64 text-center"
-              >
-                <div className="flex flex-col items-center justify-center gap-3">
-                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center border border-slate-100">
-                    <FileText className="h-8 w-8 text-slate-300" />
-                  </div>
-                  <div className="text-slate-500">
-                    <p className="font-medium text-slate-900">
-                      Tidak ada arsip ditemukan.
-                    </p>
-                    <p className="text-sm text-slate-400">
-                      Coba sesuaikan filter pencarian Anda.
-                    </p>
-                  </div>
-                </div>
+              <TableCell colSpan={8 + filteredSchema.length} className="h-64 text-center">
+                 {/* ... (Empty state content) ... */}
+                 <div className="flex flex-col items-center justify-center gap-3">
+                   <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center border border-slate-100">
+                     <FileText className="h-8 w-8 text-slate-300" />
+                   </div>
+                   <div className="text-slate-500">
+                     <p className="font-medium text-slate-900">Tidak ada arsip ditemukan.</p>
+                     <p className="text-sm text-slate-400">Coba sesuaikan filter pencarian Anda.</p>
+                   </div>
+                 </div>
               </TableCell>
             </TableRow>
           ) : (
             data.map((item, index) => {
               let customData = {};
               try {
-                customData =
-                  typeof item.dataCustom === "string"
-                    ? JSON.parse(item.dataCustom)
-                    : item.dataCustom || {};
-              } catch (e) {
-                console.error(e);
-              }
+                customData = typeof item.dataCustom === "string" ? JSON.parse(item.dataCustom) : item.dataCustom || {};
+              } catch (e) { console.error(e); }
 
               return (
-                <TableRow
-                  key={item.id}
-                  className="group border-b border-slate-100 transition-colors hover:bg-blue-50/50 even:bg-slate-100"
-                >
-                  {/* NO - Sticky Left (UBAH KE SOLID COLOR) */}
-                  <TableCell 
-                    className="text-center text-slate-500 font-mono text-xs sticky left-0 bg-white group-hover:bg-blue-50 group-even:bg-slate-100 z-10 border-r border-slate-100/50"
-                    style={getWidthStyle("no")}
-                  >
+                <TableRow key={item.id} className="group border-b border-slate-100 transition-colors hover:bg-blue-50/50 even:bg-slate-100">
+                  {/* ... (Kolom Hardcoded TETAP SAMA) ... */}
+                  <TableCell className="text-center text-slate-500 font-mono text-xs sticky left-0 bg-white group-hover:bg-blue-50 group-even:bg-slate-100 z-10 border-r border-slate-100/50" style={getWidthStyle("no")}>
                     {(page - 1) * itemsPerPage + index + 1}
                   </TableCell>
-
-                  <TableCell 
-                    className="py-3 truncate border-r border-slate-100/50" 
-                    style={getWidthStyle("judul")}
-                  >
+                  <TableCell className="py-3 truncate border-r border-slate-100/50" style={getWidthStyle("judul")}>
                     <div className="font-semibold text-slate-800 text-sm group-hover:text-blue-700 transition-colors truncate" title={item.judul}>
                       {item.judul}
                     </div>
                   </TableCell>
-
-                  <TableCell 
-                    className="border-r border-slate-100/50 truncate"
-                    style={getWidthStyle("nomor")}
-                  >
+                  <TableCell className="border-r border-slate-100/50 truncate" style={getWidthStyle("nomor")}>
                     <div className="font-mono text-xs text-slate-600 bg-white px-2 py-1 rounded w-fit border border-slate-200 shadow-sm truncate" title={item.nomor}>
                       {item.nomor || "-"}
                     </div>
                   </TableCell>
-
-                  <TableCell 
-                    className="border-r border-slate-100/50 truncate"
-                    style={getWidthStyle("tgl")}
-                  >
-                    <div className="text-xs text-slate-500 font-medium truncate">
-                      {formatDate(item.createdAt)}
-                    </div>
+                  <TableCell className="border-r border-slate-100/50 truncate" style={getWidthStyle("tgl")}>
+                    <div className="text-xs text-slate-500 font-medium truncate">{formatDate(item.createdAt)}</div>
                   </TableCell>
-
-                  <TableCell 
-                    className="text-center border-r border-slate-100/50" 
-                    style={getWidthStyle("tahun")}
-                  >
-                    <div className="text-sm font-bold text-slate-600">
-                      {item.tahun}
-                    </div>
+                  <TableCell className="text-center border-r border-slate-100/50" style={getWidthStyle("tahun")}>
+                    <div className="text-sm font-bold text-slate-600">{item.tahun}</div>
                   </TableCell>
-
-                  <TableCell 
-                    className="border-r border-slate-100/50"
-                    style={getWidthStyle("jenis")}
-                  >
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "font-medium border-0 px-2.5 py-0.5 rounded-md text-xs truncate max-w-full",
-                        item.jenisNama === "Surat Masuk"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : item.jenisNama === "Surat Keluar"
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-blue-100 text-blue-700"
-                      )}
-                    >
+                  <TableCell className="border-r border-slate-100/50" style={getWidthStyle("jenis")}>
+                    <Badge variant="outline" className={cn("font-medium border-0 px-2.5 py-0.5 rounded-md text-xs truncate max-w-full", item.jenisNama === "Surat Masuk" ? "bg-emerald-100 text-emerald-700" : item.jenisNama === "Surat Keluar" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700")}>
                       {item.jenisNama}
                     </Badge>
                   </TableCell>
 
-                  {/* Cell Dinamis */}
-                  {dynamicSchema.map((col: any) => (
+                  {/* Cell Dinamis (Gunakan filteredSchema) */}
+                  {filteredSchema.map((col: any) => (
                     <TableCell
                       key={col.id}
                       className="text-slate-600 text-sm border-r border-slate-100/50 truncate overflow-hidden"
                       style={getWidthStyle(col.id)}
                     >
-                      <span
-                        className="truncate block"
-                        title={(customData as any)?.[col.id]}
-                      >
+                      <span className="truncate block" title={(customData as any)?.[col.id]}>
                         {(customData as any)?.[col.id] || "-"}
                       </span>
                     </TableCell>
                   ))}
 
-                  {/* Aksi - Sticky Right (UBAH KE SOLID COLOR) */}
+                  {/* Aksi */}
                   <TableCell className="text-right pr-4 sticky right-0 bg-white group-even:bg-slate-100 group-hover:bg-blue-50 shadow-[inset_10px_0_10px_-10px_rgba(0,0,0,0.05)] transition-colors z-10 border-l border-slate-100/50">
                     <div className="flex items-center justify-end gap-1">
                       <ArsipDetailDialog item={item} />
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onDelete(item.id)}
-                        className="h-8 w-8 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full"
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => onDelete(item.id)} className="h-8 w-8 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full">
                         <Trash2 className="w-4 h-4" />
                         <span className="sr-only">Hapus</span>
                       </Button>

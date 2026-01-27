@@ -40,13 +40,6 @@ export default async function InputArsipPage() {
           title="Input Arsip Baru" 
           description="Masukkan data arsip secara massal (bulk insert)."
         />
-        
-        {/* TOMBOL TESTING: Hapus tombol ini nanti kalau sudah production */}
-        <form action={injectSampleSchema}>
-          <Button variant="ghost" size="sm" className="text-xs text-slate-400 hover:text-red-500">
-            [DEV] Inject Sample Columns
-          </Button>
-        </form>
       </div>
 
       <SpreadsheetInput jenisArsipList={jenisList} />
