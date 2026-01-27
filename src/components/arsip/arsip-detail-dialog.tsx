@@ -1,217 +1,260 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '../../components/ui/dialog';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
-import { Badge } from '../../components/ui/badge';
-import { Eye, Edit2, Save, X, Loader2, Calendar, FileText, Hash } from 'lucide-react';
-import { updateArsip } from '../../app/actions/update-arsip';
-import { useRouter } from 'next/navigation';
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "../ui/dialog";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Textarea } from "../ui/textarea";
+import { Eye, Pencil, Save, X, Loader2, FileText } from "lucide-react";
+import { updateArsip } from "../../app/actions/update-arsip";
+import { useRouter } from "next/navigation";
+import { Badge } from "../ui/badge";
+import { formatDate } from "../../lib/utils";
 
+// Helper untuk komponen penampil teks auto-grow
+function ReadOnlyField({ value, isLongText = false }: { value: any, isLongText?: boolean }) {
+  return (
+    <div 
+      className={`
+        w-full rounded-md border border-slate-200 bg-slate-50/50 px-3 py-2 text-sm text-slate-700 shadow-sm 
+        whitespace-pre-wrap break-words
+        ${isLongText ? "min-h-[80px]" : "min-h-[40px] flex items-center"}
+      `}
+    >
+      {value || <span className="text-slate-400 italic">-</span>}
+    </div>
+  );
+}
 
-type Props = {
-  item: any;
-};
-
-export function ArsipDetailDialog({ item }: Props) {
+export function ArsipDetailDialog({ item }: { item: any }) {
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
-  // State untuk menyimpan perubahan sementara
-  // Kita gabungkan data inti dan data custom menjadi satu object flat
-  const initialData = {
+
+  // Parse Data
+  const dataCustom = typeof item.dataCustom === "string" 
+    ? JSON.parse(item.dataCustom) 
+    : item.dataCustom || {};
+
+  const schema = typeof item.schemaConfig === "string"
+    ? JSON.parse(item.schemaConfig)
+    : item.schemaConfig || [];
+
+  // State Form
+  const [formData, setFormData] = useState({
     judul: item.judul,
-    nomorArsip: item.nomor || '',
+    nomorArsip: item.nomorArsip,
     tahun: item.tahun,
-    ...(typeof item.dataCustom === 'string' ? JSON.parse(item.dataCustom) : item.dataCustom)
-  };
-
-  const [formData, setFormData] = useState(initialData);
-
-  // Parsing Schema Config untuk field dinamis
-  let schema = [];
-  try {
-    schema = typeof item.schemaConfig === 'string' 
-      ? JSON.parse(item.schemaConfig) 
-      : (item.schemaConfig || []);
-  } catch (e) {
-    console.error("Error parsing schema", e);
-  }
-
-  const handleInputChange = (key: string, value: string) => {
-    setFormData((prev: any) => ({ ...prev, [key]: value }));
-  };
+    ...dataCustom
+  });
 
   const handleSave = async () => {
     setIsLoading(true);
-    const res = await updateArsip(item.id, formData);
-    setIsLoading(false);
+    try {
+      const { judul, nomorArsip, tahun, ...customFields } = formData;
+      
+      const payload = {
+        id: item.id,
+        judul,
+        nomorArsip,
+        tahun: Number(tahun),
+        dataCustom: customFields // Sisanya masuk ke JSON
+      };
 
-    if (res.success) {
-      setIsEditing(false); // Keluar mode edit
-      router.refresh(); // Refresh data halaman belakang
-    } else {
-      alert(res.message);
+      await updateArsip(payload);
+      
+      setIsEditing(false);
+      setOpen(false);
+      router.refresh();
+    } catch (error) {
+      console.error("Gagal update:", error);
+      alert("Gagal menyimpan perubahan");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Reset form saat modal ditutup/dibuka
-  const handleOpenChange = (open: boolean) => {
-    setIsOpen(open);
-    if (!open) setIsEditing(false); // Reset ke view mode kalau ditutup
-    if (open) setFormData(initialData); // Reset data ke awal
-  };
+  // Filter schema agar tidak menampilkan kolom system ganda (karena sudah di-handle manual di atas)
+  const customSchema = schema.filter((f: any) => 
+    !['judul', 'nomorArsip', 'tahun'].includes(f.id)
+  );
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={(val) => {
+      setOpen(val);
+      if (!val) setIsEditing(false); // Reset mode saat tutup
+    }}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full">
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600" title="Lihat Detail">
           <Eye className="w-4 h-4" />
-          <span className="sr-only">Detail</span>
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="flex flex-row items-center justify-between border-b border-slate-100 pb-4">
-          <div className="space-y-1">
-            <DialogTitle className="text-xl flex items-center gap-2">
-              {isEditing ? 'Edit Arsip' : 'Detail Arsip'}
-              <Badge variant="secondary" className="text-xs font-normal">
-                {item.jenisNama}
-              </Badge>
-            </DialogTitle>
-            <DialogDescription>
-              {item.jenisKode} • Dibuat pada {item.createdAt ? new Date(item.createdAt.replace(' ', 'T')).toLocaleDateString('id-ID') : '-'}
-            </DialogDescription>
+      {/* MAX-H-SCREEN & OVERFLOW-Y-AUTO: 
+         Penting agar jika konten memanjang ke bawah, dialog tetap bisa discroll 
+      */}
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col gap-0 p-0">
+        
+        {/* HEADER */}
+        <DialogHeader className="p-6 pb-4 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10 backdrop-blur-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold text-slate-900">
+                  {isEditing ? "Edit Arsip" : "Detail Arsip"}
+                </DialogTitle>
+                <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                  <Badge variant="outline" className="bg-white font-normal">
+                    {item.jenisNama}
+                  </Badge>
+                  <span>•</span>
+                  <span>Diinput: {formatDate(item.createdAt)}</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Toggle Edit Mode */}
+            {!isEditing && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setIsEditing(true)}
+                className="gap-2 text-blue-600 border-blue-200 hover:bg-blue-50"
+              >
+                <Pencil className="w-3.5 h-3.5" /> Edit
+              </Button>
+            )}
           </div>
-          
-          {/* TOMBOL TOGGLE EDIT (Hanya muncul jika tidak sedang loading) */}
-          {!isEditing && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setIsEditing(true)}
-              className="gap-2 mr-8 border-slate-200 text-slate-600 hover:text-blue-600"
-            >
-              <Edit2 className="w-3.5 h-3.5" /> Edit Data
-            </Button>
-          )}
         </DialogHeader>
 
-        {/* FORM / DETAIL VIEW */}
-        <div className="grid gap-6 py-4">
-          
+        {/* CONTENT */}
+        <div className="p-6 space-y-6">
           {/* SECTION: DATA UTAMA */}
           <div className="space-y-4">
-            <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-2">
-              <FileText className="w-4 h-4 text-blue-600" /> Data Utama
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+              Informasi Utama
             </h4>
             
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2 space-y-2">
-                <Label className="text-slate-500 text-xs uppercase tracking-wider">Judul Arsip</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Judul (Full Width) */}
+              <div className="md:col-span-2 space-y-2">
+                <Label className="text-slate-600 text-xs uppercase font-semibold">Judul / Perihal</Label>
                 {isEditing ? (
-                  <Input 
+                  <Textarea 
                     value={formData.judul} 
-                    onChange={(e) => handleInputChange('judul', e.target.value)} 
-                    className="font-medium"
+                    onChange={e => setFormData({...formData, judul: e.target.value})}
+                    className="font-medium min-h-[80px]"
                   />
                 ) : (
-                  <div className="text-base font-medium text-slate-900 p-2 bg-slate-50 rounded-md border border-slate-100">
-                    {formData.judul}
-                  </div>
+                  // Disini menggunakan ReadOnlyField agar auto-grow
+                  <ReadOnlyField value={formData.judul} isLongText />
                 )}
               </div>
 
+              {/* Nomor Arsip */}
               <div className="space-y-2">
-                <Label className="text-slate-500 text-xs uppercase tracking-wider">Nomor Arsip</Label>
+                <Label className="text-slate-600 text-xs uppercase font-semibold">Nomor Arsip</Label>
                 {isEditing ? (
                   <Input 
                     value={formData.nomorArsip} 
-                    onChange={(e) => handleInputChange('nomorArsip', e.target.value)} 
+                    onChange={e => setFormData({...formData, nomorArsip: e.target.value})}
                   />
                 ) : (
-                  <div className="flex items-center gap-2 p-2 rounded-md">
-                    <Hash className="w-4 h-4 text-slate-400" />
-                    <span className="font-mono text-slate-700">{formData.nomorArsip || '-'}</span>
-                  </div>
+                  <ReadOnlyField value={formData.nomorArsip} />
                 )}
               </div>
 
+              {/* Tahun */}
               <div className="space-y-2">
-                <Label className="text-slate-500 text-xs uppercase tracking-wider">Tahun</Label>
+                <Label className="text-slate-600 text-xs uppercase font-semibold">Tahun</Label>
                 {isEditing ? (
                   <Input 
                     type="number"
                     value={formData.tahun} 
-                    onChange={(e) => handleInputChange('tahun', e.target.value)} 
+                    onChange={e => setFormData({...formData, tahun: e.target.value})}
                   />
                 ) : (
-                  <div className="flex items-center gap-2 p-2 rounded-md">
-                    <Calendar className="w-4 h-4 text-slate-400" />
-                    <span className="text-slate-700">{formData.tahun}</span>
-                  </div>
+                  <ReadOnlyField value={formData.tahun} />
                 )}
               </div>
             </div>
           </div>
 
-          {/* SECTION: DATA DETAIL (DINAMIS) */}
-          {schema.length > 0 && (
-            <div className="space-y-4">
-              <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-2 mt-2">
-                <FileText className="w-4 h-4 text-green-600" /> Detail {item.jenisNama}
-              </h4>
+          <div className="h-px bg-slate-100 my-2" />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {schema.map((field: any) => (
-                  <div key={field.id} className="space-y-2">
-                    <Label className="text-slate-500 text-xs uppercase tracking-wider">
-                      {field.label} {field.required && <span className="text-red-500">*</span>}
-                    </Label>
-                    
-                    {isEditing ? (
-                      <Input 
-                        type={field.type === 'date' ? 'date' : (field.type === 'number' ? 'number' : 'text')}
-                        value={formData[field.id] || ''}
-                        onChange={(e) => handleInputChange(field.id, e.target.value)}
-                        className="bg-white"
+          {/* SECTION: DATA SPESIFIK (DYNAMIC) */}
+          <div className="space-y-4">
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+              Data Spesifik
+            </h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
+              {customSchema.map((field: any) => (
+                <div 
+                  key={field.id} 
+                  className={field.type === 'longtext' ? "md:col-span-2 space-y-2" : "space-y-2"}
+                >
+                  <Label className="text-slate-600 text-xs uppercase font-semibold">
+                    {field.label}
+                  </Label>
+                  
+                  {isEditing ? (
+                    field.type === 'longtext' ? (
+                      <Textarea 
+                        value={formData[field.id] || ""}
+                        onChange={(e) => setFormData({...formData, [field.id]: e.target.value})}
+                        className="min-h-[100px]"
                       />
                     ) : (
-                      <div className="text-sm text-slate-800 p-2 border-b border-slate-100 min-h-[36px] flex items-center">
-                        {formData[field.id] || '-'}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+                      <Input 
+                        type={field.type === 'number' ? 'number' : 'text'}
+                        value={formData[field.id] || ""}
+                        onChange={(e) => setFormData({...formData, [field.id]: e.target.value})}
+                      />
+                    )
+                  ) : (
+                    // Logic View Mode: Auto Grow Div
+                    <ReadOnlyField 
+                      value={formData[field.id]} 
+                      isLongText={field.type === 'longtext'} 
+                    />
+                  )}
+                </div>
+              ))}
+
+              {customSchema.length === 0 && (
+                <div className="md:col-span-2 text-center py-4 text-slate-400 italic text-sm bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                  Tidak ada data spesifik tambahan.
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
         {/* FOOTER ACTIONS */}
-        <DialogFooter className="gap-2 border-t border-slate-100 pt-4">
-          {isEditing ? (
-            <>
-              <Button variant="ghost" onClick={() => setIsEditing(false)} disabled={isLoading}>
-                Batal
-              </Button>
-              <Button onClick={handleSave} disabled={isLoading} className="bg-blue-600 hover:bg-blue-700">
-                {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                Simpan Perubahan
-              </Button>
-            </>
-          ) : (
-            <Button variant="secondary" onClick={() => setIsOpen(false)}>
-              Tutup
+        {isEditing && (
+          <DialogFooter className="p-4 border-t border-slate-100 bg-slate-50/50">
+            <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isLoading}>
+              Batal
             </Button>
-          )}
-        </DialogFooter>
-
+            <Button onClick={handleSave} disabled={isLoading} className="bg-blue-600 hover:bg-blue-700">
+              {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Simpan Perubahan
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

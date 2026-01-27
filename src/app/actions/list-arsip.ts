@@ -33,7 +33,7 @@ export async function getArsipList(
   const data = await db.select({
     id: arsip.id,
     judul: arsip.judul,
-    nomor: arsip.nomorArsip,
+    nomorArsip: arsip.nomorArsip,
     tahun: arsip.tahun,
     dataCustom: arsip.dataCustom,
     jenisNama: jenisArsip.nama,
