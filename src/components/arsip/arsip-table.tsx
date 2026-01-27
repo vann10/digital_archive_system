@@ -356,9 +356,9 @@ export function ArsipTable({
                   >
                     <div
                       className="font-mono text-xs text-slate-600 bg-white px-2 py-1 rounded w-fit border border-slate-200 shadow-sm truncate"
-                      title={item.nomor}
+                      title={item.nomorArsip}
                     >
-                      {item.nomor || "-"}
+                      {item.nomorArsip || "-"}
                     </div>
                   </TableCell>
                   <TableCell

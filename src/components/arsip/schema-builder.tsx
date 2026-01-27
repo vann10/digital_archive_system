@@ -11,7 +11,8 @@ import {
   Plus, 
   Trash2, 
   Pencil,
-  Lock // Icon baru untuk menandai field system
+  Lock,
+  AlertTriangle // Import icon Alert
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
@@ -44,7 +45,7 @@ export interface SchemaField {
   type: ColumnType;
   required: boolean;
   options?: string[];
-  isSystem?: boolean; // Properti baru untuk menandai kolom sistem
+  isSystem?: boolean; 
 }
 
 interface SchemaBuilderProps {
@@ -76,12 +77,17 @@ const getTypeLabel = (type: ColumnType) => {
 };
 
 export function SchemaBuilder({ fields, onChange }: SchemaBuilderProps) {
+  // State untuk Dialog Edit/Tambah
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingField, setEditingField] = useState<SchemaField | null>(null);
 
+  // State untuk Form Edit/Tambah
   const [formLabel, setFormLabel] = useState("");
   const [formType, setFormType] = useState<ColumnType>("text");
   const [formRequired, setFormRequired] = useState(false);
+
+  // State untuk Dialog Hapus
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   // --- DRAG AND DROP STATE ---
   const dragItem = useRef<number | null>(null);
@@ -104,10 +110,7 @@ export function SchemaBuilder({ fields, onChange }: SchemaBuilderProps) {
       const copyListItems = [...fields];
       const dragItemContent = copyListItems[dragItem.current];
       
-      // Hapus item dari posisi lama
       copyListItems.splice(dragItem.current, 1);
-      
-      // Masukkan ke posisi baru
       copyListItems.splice(dragOverItem.current, 0, dragItemContent);
       
       dragItem.current = null;
@@ -127,7 +130,6 @@ export function SchemaBuilder({ fields, onChange }: SchemaBuilderProps) {
   };
 
   const handleEdit = (field: SchemaField) => {
-    // Prevent editing type of system fields if necessary, or strictly allow label
     setEditingField(field);
     setFormLabel(field.label);
     setFormType(field.type);
@@ -154,12 +156,17 @@ export function SchemaBuilder({ fields, onChange }: SchemaBuilderProps) {
     setIsDialogOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    onChange(fields.filter(f => f.id !== id));
+  // Logic Hapus Final (Dipanggil setelah konfirmasi)
+  const confirmDelete = () => {
+    if (deleteTarget) {
+      onChange(fields.filter(f => f.id !== deleteTarget));
+      setDeleteTarget(null);
+    }
   };
 
   return (
     <div className="space-y-4">
+      {/* HEADER */}
       <div className="flex items-center justify-between border-b border-slate-100 pb-4">
         <div>
           <h3 className="text-sm font-semibold text-slate-900">Struktur Kolom</h3>
@@ -178,6 +185,7 @@ export function SchemaBuilder({ fields, onChange }: SchemaBuilderProps) {
         </Button>
       </div>
 
+      {/* LIST FIELDS */}
       <div className="space-y-3 min-h-[200px]">
         {fields.length === 0 && (
           <div className="text-center py-10 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
@@ -214,14 +222,12 @@ export function SchemaBuilder({ fields, onChange }: SchemaBuilderProps) {
                   {field.label}
                 </span>
                 
-                {/* Badge Wajib */}
                 {field.required && (
                   <Badge variant="secondary" className="bg-pink-50 text-pink-700 border-pink-100 text-[10px] px-1.5 py-0 h-5">
                     Wajib
                   </Badge>
                 )}
 
-                {/* Badge System */}
                 {field.isSystem && (
                   <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-100 text-[10px] px-1.5 py-0 h-5 flex gap-1 items-center">
                     <Lock className="w-3 h-3" /> Utama
@@ -246,12 +252,12 @@ export function SchemaBuilder({ fields, onChange }: SchemaBuilderProps) {
                 <Pencil className="w-3.5 h-3.5" />
               </Button>
               
-              {/* Tombol Hapus: Disable untuk System Field */}
+              {/* Tombol Hapus: Trigger Dialog Hapus */}
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                onClick={() => handleDelete(field.id)}
+                onClick={() => setDeleteTarget(field.id)}
                 disabled={field.isSystem}
                 className={cn(
                   "h-8 w-8",
@@ -267,6 +273,7 @@ export function SchemaBuilder({ fields, onChange }: SchemaBuilderProps) {
         ))}
       </div>
 
+      {/* --- DIALOG EDIT/TAMBAH --- */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -296,7 +303,7 @@ export function SchemaBuilder({ fields, onChange }: SchemaBuilderProps) {
               <Select 
                 value={formType} 
                 onValueChange={(val) => setFormType(val as ColumnType)}
-                disabled={editingField?.isSystem} // Kunci tipe data jika system
+                disabled={editingField?.isSystem}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -316,7 +323,7 @@ export function SchemaBuilder({ fields, onChange }: SchemaBuilderProps) {
               <Switch 
                 checked={formRequired}
                 onCheckedChange={setFormRequired}
-                disabled={editingField?.isSystem} // Kunci required jika system (biasanya mandatory)
+                disabled={editingField?.isSystem}
               />
             </div>
           </div>
@@ -326,6 +333,40 @@ export function SchemaBuilder({ fields, onChange }: SchemaBuilderProps) {
               Batal
             </Button>
             <Button onClick={handleSave}>Simpan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* --- DIALOG KONFIRMASI HAPUS --- */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-red-600 mb-2">
+              <AlertTriangle className="h-5 w-5" />
+              <DialogTitle className="text-lg font-bold">Hapus Kolom?</DialogTitle>
+            </div>
+            <DialogDescription className="text-slate-600 font-medium">
+              Apakah Anda yakin ingin menghapus kolom ini?
+            </DialogDescription>
+            <p className="text-sm text-slate-500 mt-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <span className="font-semibold text-slate-700">Perhatian:</span> Semua data arsip yang tersimpan pada kolom ini akan <span className="text-red-600 font-semibold">hilang permanen</span> dan tidak dapat dikembalikan.
+            </p>
+          </DialogHeader>
+          
+          <DialogFooter className="mt-2 gap-2 sm:gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setDeleteTarget(null)}
+            >
+              Batal
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Ya, Hapus Kolom
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
