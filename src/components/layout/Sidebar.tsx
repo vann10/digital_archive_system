@@ -34,7 +34,7 @@ const menuItems = [
     icon: FolderOpen,
     submenu: [
       { title: 'Input Arsip', href: '/arsip/input' },
-      { title: 'Kelola Jenis', href: '/jenis-arsip' },
+      { title: 'Kelola Jenis', href: '/arsip/jenis' },
     ],
   },
   {
