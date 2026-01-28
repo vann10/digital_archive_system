@@ -75,7 +75,7 @@ const dataArsipTerbaru = [
 
 export default function DashboardPage() {
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="space-y-4 -mx-5 animate-in fade-in slide-in-from-bottom-4 duration-700">
       
       {/* 1. HEADER SECTION */}
       <div className="flex flex-col gap-1">

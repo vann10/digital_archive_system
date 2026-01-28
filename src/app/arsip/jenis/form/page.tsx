@@ -87,7 +87,7 @@ export default function JenisArsipForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-4xl mx-auto space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <form onSubmit={handleSubmit} className="max-w-full -mx-5 space-y-4  pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
       {/* PAGE HEADER */}
       <div className="flex items-center gap-4">
