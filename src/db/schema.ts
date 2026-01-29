@@ -1,5 +1,6 @@
 import { sqliteTable, text, integer, blob } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
+import * as schema from "./schema";
 
 // --------------------------------------------------------------------------
 // 1. TABEL USER

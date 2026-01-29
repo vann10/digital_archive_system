@@ -42,8 +42,8 @@ const menuItems = [
     href: '#',
     icon: UploadCloud,
     submenu: [
-      { title: 'Import Excel', href: '/import' },
-      { title: 'Export Data', href: '/export' },
+      { title: 'Import Excel', href: '/arsip/import' },
+      { title: 'Export Data', href: '/arsip/export' },
     ],
   },
   {
