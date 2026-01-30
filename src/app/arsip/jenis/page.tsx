@@ -17,7 +17,7 @@ export default async function JenisArsipPage() {
   const jenisList = await getJenisArsipList();
 
   return (
-    <div className="space-y-4 -mx-5 animate-in fade-in duration-500">
+    <div className="space-y-5 animate-in fade-in duration-500">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">

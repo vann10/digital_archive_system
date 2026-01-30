@@ -220,7 +220,7 @@ export default function ImportArsipPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-20">
+    <div className="mx-auto space-y-5 pb-20">
       <PageHeader
         title="Import Arsip CSV"
         description="Ikuti langkah-langkah berikut untuk mengimport data arsip secara massal."
@@ -239,7 +239,7 @@ export default function ImportArsipPage() {
             <span className={cn("text-sm font-medium", step >= s ? "text-blue-600" : "text-gray-400")}>
               {s === 1 ? "Pilih Jenis" : s === 2 ? "Upload CSV" : "Mapping & Validasi"}
             </span>
-            {s < 3 && <div className="w-8 h-[2px] bg-gray-200 mx-2" />}
+            {s < 3 && <div className="w-8 h-0.5 bg-gray-200 mx-2" />}
           </div>
         ))}
       </div>
@@ -249,7 +249,7 @@ export default function ImportArsipPage() {
         <Card>
           <CardHeader>
             <CardTitle>Langkah 1: Pilih Jenis Arsip</CardTitle>
-            <CardDescription>
+            <CardDescription className="pb-5">
               Pilih jenis arsip tujuan terlebih dahulu agar sistem mengetahui struktur data yang dibutuhkan.
             </CardDescription>
           </CardHeader>
@@ -267,11 +267,11 @@ export default function ImportArsipPage() {
                  </AlertDescription>
                </Alert>
             ) : (
-              <div className="flex flex-col gap-4 max-w-md">
-                <div className="space-y-2">
+              <div className="flex flex-col gap-4 max-w-screen">
+                <div className="space-y-3">
                   <Label>Jenis Arsip Target <span className="text-red-500">*</span></Label>
                   <Select value={selectedJenisId} onValueChange={handleSelectJenis}>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Pilih salah satu..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -284,11 +284,11 @@ export default function ImportArsipPage() {
                   </Select>
                 </div>
                 
-                <div className="flex justify-end pt-4">
+                <div className="flex justify-center pt-4">
                   <Button 
                     onClick={() => setStep(2)} 
                     disabled={!selectedJenisId}
-                    className="w-full sm:w-auto"
+                    className="w-full"
                   >
                     Lanjut ke Upload <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
@@ -340,7 +340,7 @@ export default function ImportArsipPage() {
 
       {/* STEP 3: MAPPING & PREVIEW */}
       {step === 3 && (
-        <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+        <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
           
           {!validationStatus.isValid ? (
             <Alert variant="destructive">
@@ -364,7 +364,7 @@ export default function ImportArsipPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>Mapping Kolom & Preview</CardTitle>
+                <CardTitle className="py-2">Mapping Kolom & Preview</CardTitle>
                 <CardDescription>
                   Hubungkan header CSV Anda (kiri) dengan Field Database (kanan).
                   <br/>

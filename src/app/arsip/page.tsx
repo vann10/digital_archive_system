@@ -92,7 +92,7 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
   }
 
   return (
-    <div className="space-y-3 -mx-10 h-auto flex flex-col animate-in fade-in duration-500">
+    <div className="space-y-5 h-auto flex flex-col animate-in fade-in duration-500">
       {/* 1. HEADER SECTION */}
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-2 shrink-0">
         <div>

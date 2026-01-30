@@ -8,7 +8,7 @@ export default async function InputArsipPage() {
   const jenisList = await getJenisArsipWithSchema();
 
   return (
-    <div className="space-y-4 -mx-5">
+    <div>
       <div className="flex justify-between items-start">
         <PageHeader 
           title="Input Arsip Baru" 

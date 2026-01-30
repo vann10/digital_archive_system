@@ -211,7 +211,7 @@ export default function ExportArsipPage() {
               Proses ini akan menghasilkan file Excel (.xlsx). Lanjutkan?
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2 sm:gap-2">
             <Button variant="outline" onClick={() => setSelectedJenis(null)} disabled={isExporting}>
               Batal
             </Button>
