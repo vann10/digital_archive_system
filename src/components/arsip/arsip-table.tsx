@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -15,7 +16,7 @@ import { Trash2, FileText, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-re
 import { cn } from "../../lib/utils";
 import { ArsipDetailDialog } from "../../components/arsip/arsip-detail-dialog";
 
-// ... (Helper formatDate tetap sama) ...
+// Helper formatDate
 const formatDate = (dateValue: any) => {
   if (!dateValue) return "-";
   let dateToParse = dateValue;
@@ -31,31 +32,34 @@ const formatDate = (dateValue: any) => {
   });
 };
 
+// Component SortButton untuk header table
 const SortButton = ({ 
   columnKey, 
   currentSort, 
   onSort 
 }: { 
   columnKey: string, 
-  currentSort?: { key: string; direction: "asc" | "desc" | null },
+  currentSort?: { key: string; direction: "asc" | "desc" },
   onSort?: (key: string) => void 
 }) => {
   const isActive = currentSort?.key === columnKey;
+  const direction = isActive ? currentSort?.direction : null;
   
   return (
     <button
       onClick={() => onSort?.(columnKey)}
       className={cn(
         "ml-2 p-1 rounded hover:bg-slate-200 transition-colors inline-flex items-center",
-        isActive ? "text-blue-600 bg-blue-50" : "text-slate-400"
+        isActive ? "text-blue-600 bg-blue-50" : "text-slate-400 hover:text-slate-600"
       )}
+      title={`Sort by ${columnKey}`}
     >
-      {!isActive || currentSort?.direction === null ? (
-        <ArrowUpDown className="w-3 h-3" />
-      ) : currentSort.direction === "asc" ? (
-        <ChevronUp className="w-3 h-3" />
+      {!isActive ? (
+        <ArrowUpDown className="w-3.5 h-3.5" />
+      ) : direction === "asc" ? (
+        <ChevronUp className="w-3.5 h-3.5 font-bold" />
       ) : (
-        <ChevronDown className="w-3 h-3" />
+        <ChevronDown className="w-3.5 h-3.5 font-bold" />
       )}
     </button>
   );
@@ -68,8 +72,13 @@ interface ArsipTableProps {
   dynamicSchema: any[];
   isJenisSelected: boolean;
   onDelete: (id: number) => Promise<void>;
-  sortConfig?: {key: string, direction: "asc" | "desc" | null},
-  onSort?: (key: string) => void;
+  sortConfig?: {key: string, direction: "asc" | "desc"},
+  currentParams?: {
+    page: number;
+    search: string;
+    jenisId: string;
+    tahun: string;
+  }
 }
 
 export function ArsipTable({
@@ -79,10 +88,12 @@ export function ArsipTable({
   dynamicSchema,
   isJenisSelected,
   onDelete,
+  sortConfig,
+  currentParams,
 }: ArsipTableProps) {
+  const router = useRouter();
+
   // --- 1. FILTER SCHEMA ---
-  // Kita buang kolom yang sudah ada hardcoded-nya (Judul, Nomor, Tahun)
-  // Agar tidak muncul ganda di bagian dynamic
   const filteredSchema = dynamicSchema.filter(
     (col) => !["judul", "nomorArsip", "tahun"].includes(col.id),
   );
@@ -100,7 +111,6 @@ export function ArsipTable({
     if (isJenisSelected) {
       setColumnWidths((prev) => {
         const next = { ...prev };
-        // Definisi lebar awal yang pas
         if (!next["no"]) next["no"] = 60;
         if (!next["judul"]) next["judul"] = 300;
         if (!next["nomor"]) next["nomor"] = 180;
@@ -108,7 +118,6 @@ export function ArsipTable({
         if (!next["tahun"]) next["tahun"] = 80;
         if (!next["jenis"]) next["jenis"] = 150;
 
-        // Gunakan filteredSchema di sini
         filteredSchema.forEach((col) => {
           if (!next[col.id]) next[col.id] = 220;
         });
@@ -117,11 +126,9 @@ export function ArsipTable({
     } else {
       setColumnWidths({});
     }
-  }, [isJenisSelected, dynamicSchema]); // Dependensi tetap dynamicSchema agar reaktif
+  }, [isJenisSelected, dynamicSchema]);
 
-  // ... (Bagian EVENT LISTENER MOUSE & startResizing tetap sama) ...
-  // ... (Pastikan gunakan filteredSchema jika ada logic looping schema di resize) ...
-
+  // Event listeners untuk resizing
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!resizing) return;
@@ -200,7 +207,39 @@ export function ArsipTable({
     );
   };
 
-  // --- LOGIKA GROUPING DINAMIS (Gunakan filteredSchema) ---
+  // --- HANDLER SORTING dengan logika 3 klik ---
+  const handleSort = (columnKey: string) => {
+    const currentKey = sortConfig?.key;
+    const currentDir = sortConfig?.direction;
+    
+    let newDirection: "asc" | "desc" | null = "asc";
+    
+    // Logika 3 klik: asc -> desc -> default (null)
+    if (currentKey === columnKey) {
+      if (currentDir === "asc") {
+        newDirection = "desc";
+      } else if (currentDir === "desc") {
+        newDirection = null; // Kembali ke default
+      }
+    }
+
+    // Build URL dengan parameter sorting
+    const params = new URLSearchParams();
+    params.set("page", "1"); // Reset ke page 1 saat sorting
+    if (currentParams?.search) params.set("q", currentParams.search);
+    if (currentParams?.jenisId) params.set("jenis", currentParams.jenisId);
+    if (currentParams?.tahun) params.set("tahun", currentParams.tahun);
+    
+    // Hanya tambahkan sortBy dan sortDir jika tidak null (tidak default)
+    if (newDirection !== null) {
+      params.set("sortBy", columnKey);
+      params.set("sortDir", newDirection);
+    }
+
+    router.push(`/arsip?${params.toString()}`);
+  };
+
+  // --- LOGIKA GROUPING DINAMIS ---
   const dynamicGroups = filteredSchema.reduce(
     (acc: { name: string; count: number }[], col) => {
       const groupName = col.group || col.kelompok || "Data Spesifik";
@@ -217,7 +256,7 @@ export function ArsipTable({
   );
 
   return (
-    <div className="bg-white flex-1 min-h-0 -mb-1.5 relative overflow-auto">
+    <div className="flex-1 overflow-auto relative">
       <Table
         className={cn(
           "w-full",
@@ -226,8 +265,7 @@ export function ArsipTable({
             : "min-w-full",
         )}
       >
-
-
+        <TableHeader>
           {/* --- HEADER KOLOM --- */}
           <TableRow
             className={cn(
@@ -235,53 +273,109 @@ export function ArsipTable({
               isJenisSelected && "sticky",
             )}
           >
-            {/* ... (Kolom Hardcoded: No, Judul, Nomor, Tgl, Tahun, Jenis TETAP SAMA) ... */}
+            {/* No */}
             <TableHead
               className="font-bold text-slate-700 h-11 bg-slate-50 sticky left-0 z-30 text-center border-r border-slate-100"
               style={getWidthStyle("no")}
             >
               No <ResizerHandle id="no" />
             </TableHead>
+
+            {/* Judul Arsip - dengan sorting */}
             <TableHead
               className="font-bold text-slate-700 h-11 bg-slate-50 relative border-r border-slate-100"
               style={getWidthStyle("judul")}
             >
-              Judul Arsip <ResizerHandle id="judul" />
+              <div className="flex items-center justify-between">
+                <span>Judul Arsip</span>
+                <SortButton 
+                  columnKey="judul" 
+                  currentSort={sortConfig} 
+                  onSort={handleSort}
+                />
+              </div>
+              <ResizerHandle id="judul" />
             </TableHead>
+
+            {/* Nomor Arsip - dengan sorting */}
             <TableHead
               className="font-bold text-slate-700 h-11 bg-slate-50 relative border-r border-slate-100"
               style={getWidthStyle("nomor")}
             >
-              Nomor Arsip <ResizerHandle id="nomor" />
+              <div className="flex items-center justify-between">
+                <span>Nomor Arsip</span>
+                <SortButton 
+                  columnKey="nomor" 
+                  currentSort={sortConfig} 
+                  onSort={handleSort}
+                />
+              </div>
+              <ResizerHandle id="nomor" />
             </TableHead>
 
+            {/* Tahun - dengan sorting */}
             <TableHead
               className="font-bold text-slate-700 h-11 bg-slate-50 text-center relative border-r border-slate-100"
               style={getWidthStyle("tahun")}
             >
-              Tahun <ResizerHandle id="tahun" />
+              <div className="flex items-center justify-center">
+                <span>Tahun</span>
+                <SortButton 
+                  columnKey="tahun" 
+                  currentSort={sortConfig} 
+                  onSort={handleSort}
+                />
+              </div>
+              <ResizerHandle id="tahun" />
             </TableHead>
+
+            {/* Jenis - dengan sorting */}
             <TableHead
               className="font-bold text-slate-700 h-11 bg-slate-50 relative border-r border-slate-100"
               style={getWidthStyle("jenis")}
             >
-              Jenis <ResizerHandle id="jenis" />
+              <div className="flex items-center justify-between">
+                <span>Jenis</span>
+                <SortButton 
+                  columnKey="jenis" 
+                  currentSort={sortConfig} 
+                  onSort={handleSort}
+                />
+              </div>
+              <ResizerHandle id="jenis" />
             </TableHead>
+
+            {/* Tgl Input - dengan sorting */}
             <TableHead
               className="font-bold text-slate-700 h-11 bg-slate-50 relative border-r border-slate-100"
               style={getWidthStyle("tgl")}
             >
-              Tgl Input <ResizerHandle id="tgl" />
+              <div className="flex items-center justify-between">
+                <span>Tgl Input</span>
+                <SortButton 
+                  columnKey="tanggal" 
+                  currentSort={sortConfig} 
+                  onSort={handleSort}
+                />
+              </div>
+              <ResizerHandle id="tgl" />
             </TableHead>
 
-            {/* KOLOM DINAMIS (Gunakan filteredSchema) */}
+            {/* KOLOM DINAMIS - dengan sorting */}
             {filteredSchema.map((col: any) => (
               <TableHead
                 key={col.id}
                 className="font-bold text-blue-700 bg-blue-50/80 h-11 whitespace-nowrap border-r border-blue-100 relative"
                 style={getWidthStyle(col.id)}
               >
-                {col.label}
+                <div className="flex items-center justify-between">
+                  <span>{col.label}</span>
+                  <SortButton 
+                    columnKey={col.id} 
+                    currentSort={sortConfig} 
+                    onSort={handleSort}
+                  />
+                </div>
                 <ResizerHandle id={col.id} />
               </TableHead>
             ))}
@@ -291,16 +385,15 @@ export function ArsipTable({
               Aksi
             </TableHead>
           </TableRow>
-
+        </TableHeader>
 
         <TableBody>
           {data.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={8 + filteredSchema.length}
+                colSpan={7 + filteredSchema.length}
                 className="h-64 text-center"
               >
-                {/* ... (Empty state content) ... */}
                 <div className="flex flex-col items-center justify-center gap-3">
                   <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center border border-slate-100">
                     <FileText className="h-8 w-8 text-slate-300" />
@@ -333,13 +426,15 @@ export function ArsipTable({
                   key={item.id}
                   className="group border-b border-slate-100 transition-colors hover:bg-blue-50/50 even:bg-slate-100"
                 >
-                  {/* ... (Kolom Hardcoded TETAP SAMA) ... */}
+                  {/* No */}
                   <TableCell
                     className="text-center text-slate-500 font-mono text-xs sticky left-0 bg-white group-hover:bg-blue-50 group-even:bg-slate-100 z-10 border-r border-slate-100/50"
                     style={getWidthStyle("no")}
                   >
                     {(page - 1) * itemsPerPage + index + 1}
                   </TableCell>
+
+                  {/* Judul */}
                   <TableCell
                     className="py-3 truncate border-r border-slate-100/50"
                     style={getWidthStyle("judul")}
@@ -351,6 +446,8 @@ export function ArsipTable({
                       {item.judul}
                     </div>
                   </TableCell>
+
+                  {/* Nomor Arsip */}
                   <TableCell
                     className="border-r border-slate-100/50 truncate"
                     style={getWidthStyle("nomor")}
@@ -362,6 +459,8 @@ export function ArsipTable({
                       {item.nomorArsip || "-"}
                     </div>
                   </TableCell>
+
+                  {/* Tahun */}
                   <TableCell
                     className="text-center border-r border-slate-100/50"
                     style={getWidthStyle("tahun")}
@@ -370,6 +469,8 @@ export function ArsipTable({
                       {item.tahun}
                     </div>
                   </TableCell>
+
+                  {/* Jenis */}
                   <TableCell
                     className="border-r border-slate-100/50"
                     style={getWidthStyle("jenis")}
@@ -389,6 +490,7 @@ export function ArsipTable({
                     </Badge>
                   </TableCell>
 
+                  {/* Tanggal Input */}
                   <TableCell
                     className="border-r border-slate-100/50 truncate"
                     style={getWidthStyle("tgl")}
@@ -398,7 +500,7 @@ export function ArsipTable({
                     </div>
                   </TableCell>
 
-                  {/* Cell Dinamis (Gunakan filteredSchema) */}
+                  {/* Cell Dinamis */}
                   {filteredSchema.map((col: any) => (
                     <TableCell
                       key={col.id}

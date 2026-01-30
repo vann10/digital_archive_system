@@ -39,6 +39,8 @@ type Props = {
     q?: string;
     jenis?: string;
     tahun?: string;
+    sortBy?: string;
+    sortDir?: string;
   };
 };
 
@@ -48,12 +50,17 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
   const search = params?.q || "";
   const jenisId = params?.jenis || "";
   const tahun = params?.tahun || "";
+  const sortBy = params?.sortBy || "";
+  const sortDir = (params?.sortDir as "asc" | "desc") || "asc";
 
+  // Panggil getArsipList dengan parameter sorting
   const { data, meta, dynamicSchema } = await getArsipList(
     page,
     search,
     jenisId,
-    tahun
+    tahun,
+    sortBy,
+    sortDir
   );
   const jenisOptions = await getJenisArsipOptions();
 
@@ -70,6 +77,9 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
     if (q) url += `&q=${q}`;
     if (jenis && jenis !== "all") url += `&jenis=${jenis}`;
     if (thn && thn !== "all") url += `&tahun=${thn}`;
+    // Pertahankan sorting saat search
+    if (sortBy) url += `&sortBy=${sortBy}`;
+    if (sortDir) url += `&sortDir=${sortDir}`;
 
     redirect(url);
   }
@@ -78,9 +88,8 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
   async function handleDelete(id: number) {
     "use server";
     await deleteArsip(id);
-    redirect(`/arsip?page=${page}&q=${search}&jenis=${jenisId}&tahun=${tahun}`); // Refresh halaman
+    redirect(`/arsip?page=${page}&q=${search}&jenis=${jenisId}&tahun=${tahun}&sortBy=${sortBy}&sortDir=${sortDir}`);
   }
-  
 
   return (
     <div className="space-y-3 -mx-10 h-auto flex flex-col animate-in fade-in duration-500">
@@ -220,8 +229,7 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
           </form>
         </div>
 
-        {/* --- REPLACED: TABLE SECTION --- */}
-        {/* Menggunakan Client Component ArsipTable */}
+        {/* --- TABLE SECTION --- */}
         <ArsipTable
           data={data}
           page={page}
@@ -229,9 +237,11 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
           dynamicSchema={dynamicSchema}
           isJenisSelected={isJenisSelected}
           onDelete={handleDelete}
+          sortConfig={{ key: sortBy, direction: sortDir }}
+          currentParams={{ page, search, jenisId, tahun }}
         />
 
-        {/* FOOTER PAGINATION (Tetap di Server Component karena navigasi URL) */}
+        {/* FOOTER PAGINATION */}
         <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="text-xs text-slate-500 font-medium">
             Menampilkan <strong>{data.length}</strong> dari{" "}
@@ -248,9 +258,7 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
             >
               {page > 1 ? (
                 <Link
-                  href={`/arsip?page=${
-                    page - 1
-                  }&q=${search}&jenis=${jenisId}&tahun=${tahun}`}
+                  href={`/arsip?page=${page - 1}&q=${search}&jenis=${jenisId}&tahun=${tahun}${sortBy ? `&sortBy=${sortBy}&sortDir=${sortDir}` : ''}`}
                   className="flex items-center gap-1"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" /> Prev
@@ -271,9 +279,7 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
             >
               {page < meta.totalPages ? (
                 <Link
-                  href={`/arsip?page=${
-                    page + 1
-                  }&q=${search}&jenis=${jenisId}&tahun=${tahun}`}
+                  href={`/arsip?page=${page + 1}&q=${search}&jenis=${jenisId}&tahun=${tahun}${sortBy ? `&sortBy=${sortBy}&sortDir=${sortDir}` : ''}`}
                   className="flex items-center gap-1"
                 >
                   Next <ChevronRight className="h-3.5 w-3.5" />

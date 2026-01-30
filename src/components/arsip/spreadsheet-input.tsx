@@ -212,26 +212,7 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
                 
                 {/* BARIS 1: NAMA GRUP */}
                 <TableRow className="bg-slate-50 border-b border-slate-200">
-                  <TableHead rowSpan={2} className="w-[50px] text-center border-r font-bold bg-slate-100">#</TableHead>
-                  
-                  <TableHead colSpan={3} className="text-center font-bold text-slate-800 bg-slate-100 border-r border-slate-300 h-10">
-                    DATA UTAMA ARSIP
-                  </TableHead>
-
-                  {uniqueGroups.map(groupName => {
-                    const colCount = schema.filter(col => (col.group || 'Detail Tambahan') === groupName).length;
-                    return (
-                      <TableHead 
-                        key={groupName} 
-                        colSpan={colCount} 
-                        className="text-center font-bold text-blue-700 bg-blue-50/50 border-r border-blue-200 h-10 px-4"
-                      >
-                        {groupName.toUpperCase()}
-                      </TableHead>
-                    );
-                  })}
-
-                  <TableHead rowSpan={2} className="w-[50px] bg-slate-50"></TableHead>
+                  <TableHead rowSpan={2} className="w-[50px] text-center border-r font-medium text-slate-600 bg-slate-100">No</TableHead>
                 </TableRow>
 
                 {/* BARIS 2: LABEL KOLOM SPESIFIK */}
@@ -285,7 +266,7 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
                     )}
 
                     <TableCell className="text-center p-0">
-                      <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex justify-center opacity-100 group-hover:opacity-100 transition-opacity">
                         <button 
                           onClick={() => removeRow(index)}
                           className="p-2 text-red-500 bg-slate-100 hover:text-white hover:bg-red-500 rounded-md"

@@ -12,7 +12,8 @@ export async function getArsipList(
   search: string = "",
   jenisId: string = "",
   tahun: string = "",
-  sortBy: string = "newest" // Default: Terbaru (LIFO)
+  sortBy: string = "",
+  sortDir: "asc" | "desc" = "asc"
 ) {
   const offset = (page - 1) * ITEMS_PER_PAGE;
   let baseConditions = [];
@@ -32,25 +33,51 @@ export async function getArsipList(
   const whereCondition =
     baseConditions.length > 0 ? and(...baseConditions) : undefined;
 
-  // --- LOGIKA SORTING (LIFO) ---
+  // --- LOGIKA SORTING DINAMIS ---
   let orderByClause = [];
 
-  switch (sortBy) {
-    case "oldest": // Terlama
-      orderByClause = [asc(arsip.createdAt), asc(arsip.id)];
-      break;
-    case "az": // Judul A-Z
-      orderByClause = [asc(arsip.judul)];
-      break;
-    case "za": // Judul Z-A
-      orderByClause = [desc(arsip.judul)];
-      break;
-    case "newest": // Terbaru (LIFO)
-    default:
-      // Sort by ID descending adalah cara paling akurat untuk LIFO (Last In First Out)
-      // karena ID auto-increment. createdAt digunakan sebagai secondary.
-      orderByClause = [desc(arsip.id)]; 
-      break;
+  if (sortBy) {
+    // Jika ada sorting yang dipilih user
+    switch (sortBy) {
+      case "judul":
+        orderByClause = sortDir === "asc" 
+          ? [asc(arsip.judul)] 
+          : [desc(arsip.judul)];
+        break;
+      
+      case "nomor":
+        orderByClause = sortDir === "asc" 
+          ? [asc(arsip.nomorArsip)] 
+          : [desc(arsip.nomorArsip)];
+        break;
+      
+      case "tahun":
+        orderByClause = sortDir === "asc" 
+          ? [asc(arsip.tahun)] 
+          : [desc(arsip.tahun)];
+        break;
+      
+      case "jenis":
+        orderByClause = sortDir === "asc" 
+          ? [asc(jenisArsip.nama)] 
+          : [desc(jenisArsip.nama)];
+        break;
+      
+      case "tanggal":
+        orderByClause = sortDir === "asc" 
+          ? [asc(arsip.createdAt), asc(arsip.id)] 
+          : [desc(arsip.createdAt), desc(arsip.id)];
+        break;
+      
+      default:
+        // Untuk kolom dinamis, kita tidak bisa sort di database
+        // Akan di-handle di aplikasi setelah query
+        orderByClause = [desc(arsip.id)];
+        break;
+    }
+  } else {
+    // Default sorting: LIFO (Last In First Out) - Terbaru dulu
+    orderByClause = [desc(arsip.id)];
   }
 
   const data = await db
@@ -70,7 +97,34 @@ export async function getArsipList(
     .where(whereCondition)
     .limit(ITEMS_PER_PAGE)
     .offset(offset)
-    .orderBy(...orderByClause); // Terapkan sorting dinamis
+    .orderBy(...orderByClause);
+
+  // --- SORTING KOLOM DINAMIS (jika ada) ---
+  // Kolom dinamis ada di field JSON dataCustom, tidak bisa di-sort di database
+  // Jadi kita sort di aplikasi setelah query
+  let sortedData = [...data];
+  
+  if (sortBy && !["judul", "nomor", "tahun", "jenis", "tanggal"].includes(sortBy)) {
+    sortedData.sort((a, b) => {
+      try {
+        const aCustom = typeof a.dataCustom === "string" 
+          ? JSON.parse(a.dataCustom) 
+          : a.dataCustom || {};
+        const bCustom = typeof b.dataCustom === "string" 
+          ? JSON.parse(b.dataCustom) 
+          : b.dataCustom || {};
+        
+        const aValue = (aCustom[sortBy] || "").toString().toLowerCase();
+        const bValue = (bCustom[sortBy] || "").toString().toLowerCase();
+        
+        const comparison = aValue.localeCompare(bValue, 'id', { numeric: true });
+        return sortDir === "asc" ? comparison : -comparison;
+      } catch (e) {
+        console.error("Error sorting dynamic column:", e);
+        return 0;
+      }
+    });
+  }
 
   const totalResult = await db
     .select({ count: sql<number>`count(*)` })
@@ -100,7 +154,7 @@ export async function getArsipList(
   }
 
   return {
-    data,
+    data: sortedData,
     meta: { totalItems, totalPages, currentPage: page },
     dynamicSchema,
   };
@@ -109,7 +163,8 @@ export async function getArsipList(
 export async function getJenisArsipOptions() {
   return await db
     .select({ id: jenisArsip.id, nama: jenisArsip.nama })
-    .from(jenisArsip);
+    .from(jenisArsip)
+    .orderBy(asc(jenisArsip.nama));
 }
 
 export async function deleteArsip(id: number) {
