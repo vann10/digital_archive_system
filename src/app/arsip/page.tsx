@@ -80,11 +80,12 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
     await deleteArsip(id);
     redirect(`/arsip?page=${page}&q=${search}&jenis=${jenisId}&tahun=${tahun}`); // Refresh halaman
   }
+  
 
   return (
-    <div className="space-y-4 -mx- h-screen flex flex-col animate-in fade-in duration-500">
+    <div className="space-y-3 -mx-10 h-auto flex flex-col animate-in fade-in duration-500">
       {/* 1. HEADER SECTION */}
-      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 shrink-0">
+      <div className="flex flex-col md:flex-row justify-between md:items-center gap-2 shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
             Daftar Arsip
@@ -104,9 +105,9 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
       </div>
 
       {/* 2. MAIN CARD CONTENT */}
-      <Card className="border-slate-200 shadow-sm bg-slate flex flex-col flex-1 overflow-hidden rounded-xl h-screen">
+      <Card className="border-red-600 shadow-sm bg-slate flex flex-col flex-1 overflow-hidden rounded-b-2xl h-96">
         {/* TOOLBAR FILTER */}
-        <div className="p-4 border-b border-slate-100 bg-white flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div className="px-4 pb-4 pt-2 border-b border-slate-100 bg-white flex flex-col md:flex-row gap-4 items-center justify-between">
           <form
             action={handleSearch}
             className="flex flex-col md:flex-row w-full gap-3 md:gap-0 md:space-x-4"
@@ -196,7 +197,7 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
               <div className="flex gap-2">
                 <Button
                   type="submit"
-                  className="bg-slate-900 hover:bg-slate-800 text-white h-10 px-6 rounded-lg shadow-sm flex-1 md:flex-none"
+                  className="bg-slate-900 hover:bg-slate-800 hover:cursor-pointer text-white h-10 px-6 rounded-lg shadow-sm flex-1 md:flex-none"
                 >
                   Cari
                 </Button>

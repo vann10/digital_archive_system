@@ -11,7 +11,7 @@ import {
 } from "../../components/ui/table";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
-import { Trash2, FileText } from "lucide-react";
+import { Trash2, FileText, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { ArsipDetailDialog } from "../../components/arsip/arsip-detail-dialog";
 
@@ -31,6 +31,36 @@ const formatDate = (dateValue: any) => {
   });
 };
 
+const SortButton = ({ 
+  columnKey, 
+  currentSort, 
+  onSort 
+}: { 
+  columnKey: string, 
+  currentSort?: { key: string; direction: "asc" | "desc" | null },
+  onSort?: (key: string) => void 
+}) => {
+  const isActive = currentSort?.key === columnKey;
+  
+  return (
+    <button
+      onClick={() => onSort?.(columnKey)}
+      className={cn(
+        "ml-2 p-1 rounded hover:bg-slate-200 transition-colors inline-flex items-center",
+        isActive ? "text-blue-600 bg-blue-50" : "text-slate-400"
+      )}
+    >
+      {!isActive || currentSort?.direction === null ? (
+        <ArrowUpDown className="w-3 h-3" />
+      ) : currentSort.direction === "asc" ? (
+        <ChevronUp className="w-3 h-3" />
+      ) : (
+        <ChevronDown className="w-3 h-3" />
+      )}
+    </button>
+  );
+};
+
 interface ArsipTableProps {
   data: any[];
   page: number;
@@ -38,6 +68,8 @@ interface ArsipTableProps {
   dynamicSchema: any[];
   isJenisSelected: boolean;
   onDelete: (id: number) => Promise<void>;
+  sortConfig?: {key: string, direction: "asc" | "desc" | null},
+  onSort?: (key: string) => void;
 }
 
 export function ArsipTable({
@@ -185,7 +217,7 @@ export function ArsipTable({
   );
 
   return (
-    <div className="bg-white flex-1 min-h-0 -mb-6.5 relative overflow-auto">
+    <div className="bg-white flex-1 min-h-0 -mb-1.5 relative overflow-auto">
       <Table
         className={cn(
           "w-full",
@@ -194,44 +226,13 @@ export function ArsipTable({
             : "min-w-full",
         )}
       >
-        <TableHeader
-          className={cn(
-            "sticky z-20 shadow-sm bg-slate-50",
-            isJenisSelected ? "top-0" : "top-0",
-          )}
-        >
-          {/* --- HEADER GRUP DINAMIS --- */}
-          {isJenisSelected && (
-            <TableRow className="border-b border-slate-200 bg-slate-100/80 hover:bg-slate-100/80 h-8">
-              {/* Grup Data Utama */}
-              <TableHead
-                colSpan={6}
-                className="text-center font-bold text-slate-600 border-r border-slate-300/50 h-8 text-[10px] uppercase tracking-wider bg-slate-100/80 left-0 z-40 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]"
-              >
-                Data Utama Arsip
-              </TableHead>
 
-              {/* Grup Data Spesifik (Looping filteredSchema / dynamicGroups yang sudah difilter) */}
-              {dynamicGroups.map((group, idx) => (
-                <TableHead
-                  key={idx}
-                  colSpan={group.count}
-                  className="text-center font-bold text-blue-700 border-r border-blue-200/50 h-8 text-[10px] uppercase tracking-wider bg-blue-50/80 whitespace-nowrap overflow-hidden text-ellipsis px-2"
-                  title={group.name}
-                >
-                  {group.name}
-                </TableHead>
-              ))}
-
-              <TableHead className="bg-white sticky right-0 z-40 border-l border-slate-200 h-8" />
-            </TableRow>
-          )}
 
           {/* --- HEADER KOLOM --- */}
           <TableRow
             className={cn(
               "border-b border-slate-200 hover:bg-slate-50",
-              isJenisSelected && "sticky top-8",
+              isJenisSelected && "sticky",
             )}
           >
             {/* ... (Kolom Hardcoded: No, Judul, Nomor, Tgl, Tahun, Jenis TETAP SAMA) ... */}
@@ -290,7 +291,7 @@ export function ArsipTable({
               Aksi
             </TableHead>
           </TableRow>
-        </TableHeader>
+
 
         <TableBody>
           {data.length === 0 ? (
