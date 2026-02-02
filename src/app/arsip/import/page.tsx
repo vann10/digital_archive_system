@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../..
 import { Button } from "../../../components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
 import { UploadCloud, ArrowRight, CheckCircle2, AlertCircle, RefreshCw, ChevronLeft, Save } from "lucide-react";
-import { importBatchArsipFinal, getAllJenisArsipForExport } from "../../../app/actions/import-export-arsip";
+import { importBatchArsipFinal, getJenisArsipList } from "../../../app/actions/import-export-arsip";
 import { useRouter } from "next/navigation";
 import Papa from "papaparse";
 import { Label } from "../../../components/ui/label";
@@ -53,7 +53,7 @@ export default function ImportArsipPage() {
   // -- LOAD JENIS ARSIP --
   useEffect(() => {
     const loadJenis = async () => {
-      const res = await getAllJenisArsipForExport();
+      const res = await getJenisArsipList();
       if (res.success && res.data) {
         setJenisOptions(res.data);
       }
@@ -248,7 +248,7 @@ export default function ImportArsipPage() {
       {step === 1 && (
         <Card>
           <CardHeader>
-            <CardTitle>Langkah 1: Pilih Jenis Arsip</CardTitle>
+            <CardTitle className="pt-5">Langkah 1: Pilih Jenis Arsip</CardTitle>
             <CardDescription className="pb-5">
               Pilih jenis arsip tujuan terlebih dahulu agar sistem mengetahui struktur data yang dibutuhkan.
             </CardDescription>
@@ -304,7 +304,7 @@ export default function ImportArsipPage() {
         <Card>
            <CardHeader>
             <div className="flex items-center justify-between">
-               <CardTitle>Langkah 2: Upload File CSV</CardTitle>
+               <CardTitle className="pt-5">Langkah 2: Upload File CSV</CardTitle>
                <Button variant="ghost" size="sm" onClick={() => setStep(1)}>
                  <ChevronLeft className="mr-2 h-4 w-4" /> Kembali
                </Button>

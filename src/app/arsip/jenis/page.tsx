@@ -5,6 +5,7 @@ import {
   FolderOpen,
   Pencil,
   LayoutTemplate,
+  Database
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Badge } from "../../../components/ui/badge";
@@ -66,7 +67,7 @@ export default async function JenisArsipPage() {
                       variant="secondary"
                       className="text-[10px] bg-slate-100 text-slate-600 px-1.5 h-5 font-normal"
                     >
-                      {item.colCount || 0} Kolom
+                      {item.arsipCount} Data
                     </Badge>
                   </div>
                 </div>

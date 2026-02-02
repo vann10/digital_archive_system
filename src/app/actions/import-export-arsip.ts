@@ -2,16 +2,31 @@
 
 import { db } from "../../db";
 import { arsip, jenisArsip } from "../../db/schema"; 
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 // --- HELPER: GET JENIS ARSIP ---
-export async function getAllJenisArsipForExport() {
+export async function getJenisArsipList() {
   try {
-    const data = await db.select().from(jenisArsip).orderBy(jenisArsip.nama);
-    return { success: true, data };
+    const data = await db
+      .select({
+        id: jenisArsip.id,
+        nama: jenisArsip.nama,
+        kode: jenisArsip.kode,
+        deskripsi: jenisArsip.deskripsi,
+        arsipCount: sql<number>`count(${arsip.id})`,
+      })
+      .from(jenisArsip)
+      .leftJoin(arsip, eq(jenisArsip.id, arsip.jenisArsipId))
+      .where(eq(jenisArsip.isActive, true))
+      .groupBy(jenisArsip.id);
+
+    return { 
+      success: true, 
+      data: data.map(d => ({...d, totalData: Number(d.arsipCount)})) 
+    };
   } catch (error) {
-    return { success: false, data: [] };
+    return { success: false, error };
   }
 }
 
