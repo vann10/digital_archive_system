@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 
 interface ArsipTerbaru {
   id: number;
-  judul: string;
   kode: string;
   jenis: string;
   tahun: number;
@@ -38,7 +37,6 @@ export function ArsipTerbaruTable({ data }: ArsipTerbaruTableProps) {
                     <FileText className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-semibold text-slate-800">{item.judul}</h4>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs text-slate-500 font-mono">{item.kode}</span>
                       <span className="w-1 h-1 rounded-full bg-slate-300"></span>

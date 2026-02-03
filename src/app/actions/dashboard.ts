@@ -85,8 +85,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     // 5. Pengguna Aktif
     const penggunaAktifResult = await db
       .select({ count: count() })
-      .from(users)
-      .where(eq(users.isActive, true));
+      .from(users);
     const penggunaAktif = penggunaAktifResult[0]?.count || 0;
 
     // Hitung Growth Rate

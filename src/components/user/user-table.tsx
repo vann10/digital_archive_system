@@ -1,0 +1,199 @@
+"use client";
+
+import { useState } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../components/ui/table";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "../../components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
+import { Label } from "../../components/ui/label";
+import { Badge } from "../../components/ui/badge";
+import { Plus, Trash2, UserPlus, Shield, Eye, EyeOff } from "lucide-react";
+import { createUser, deleteUser } from "../../app/actions/users";
+import { useFormStatus } from "react-dom";
+
+type User = {
+  id: number;
+  username: string;
+  password: string;
+  role: "admin" | "staff" | "viewer" | string;
+};
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending}>
+      {pending ? "Menyimpan..." : "Simpan User"}
+    </Button>
+  );
+}
+
+export default function UserTableClient({ initialUsers }: { initialUsers: User[] }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState<Record<number, boolean>>({});
+
+  const togglePassword = (id: number) => {
+    setShowPassword((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleCreate = async (formData: FormData) => {
+    const res = await createUser(null, formData);
+    if (res.success) {
+      setIsOpen(false);
+      // Optional: Add toast notification here
+    } else {
+      alert(res.message);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (confirm("Apakah Anda yakin ingin menghapus user ini?")) {
+      await deleteUser(id);
+    }
+  };
+
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case "admin":
+        return <Badge className="bg-red-500 hover:bg-red-600">Admin</Badge>;
+      case "staff":
+        return <Badge className="bg-blue-500 hover:bg-blue-600">Staff</Badge>;
+      default:
+        return <Badge variant="secondary">Viewer</Badge>;
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-semibold tracking-tight">Daftar Pengguna</h2>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <UserPlus className="mr-2 h-4 w-4" /> Tambah User
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Tambah Pengguna Baru</DialogTitle>
+            </DialogHeader>
+            <form action={handleCreate} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input id="username" name="username" placeholder="johndoe" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="text"
+                  placeholder="Secret123"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
+                <Select name="role" defaultValue="staff" required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="staff">Staff</SelectItem>
+                    <SelectItem value="viewer">Viewer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter>
+                <SubmitButton />
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="border rounded-md">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[50px]">No</TableHead>
+              <TableHead>Username</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Password</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {initialUsers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                  Belum ada user yang ditambahkan.
+                </TableCell>
+              </TableRow>
+            ) : (
+              initialUsers.map((user, index) => (
+                <TableRow key={user.id}>
+                  <TableCell>{index + 1}</TableCell>
+                  <TableCell className="font-medium flex items-center gap-2">
+                     <Shield className="h-4 w-4 text-muted-foreground" />
+                     {user.username}
+                  </TableCell>
+                  <TableCell>{getRoleBadge(user.role)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm">
+                        {showPassword[user.id] ? user.password : "••••••••"}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => togglePassword(user.id)}
+                      >
+                        {showPassword[user.id] ? (
+                          <EyeOff className="h-3 w-3" />
+                        ) : (
+                          <Eye className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDelete(user.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}

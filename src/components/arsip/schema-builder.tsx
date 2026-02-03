@@ -309,11 +309,10 @@ export function SchemaBuilder({ fields, onChange }: SchemaBuilderProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="text">Teks Singkat</SelectItem>
+                  <SelectItem value="text">Teks</SelectItem>
                   <SelectItem value="longtext">Teks Panjang</SelectItem>
                   <SelectItem value="number">Angka</SelectItem>
                   <SelectItem value="date">Tanggal</SelectItem>
-                  <SelectItem value="select">Pilihan</SelectItem>
                 </SelectContent>
               </Select>
             </div>

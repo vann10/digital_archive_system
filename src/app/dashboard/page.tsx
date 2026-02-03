@@ -1,3 +1,5 @@
+//src/app/dashboard/page.tsx
+
 import React from "react";
 import { getAllDashboardData } from "../actions/dashboard";
 import { StatsCards } from "@/src/components/dashboard/stats-card";
@@ -15,7 +17,7 @@ export default async function DashboardPage() {
       {/* 1. HEADER SECTION */}
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold text-slate-900">
-          Selamat Datang, Admin
+          Sistem Arsip Digital Dinas Sosial Surakarta
         </h1>
         <p className="text-sm text-slate-500">
           Ringkasan aktivitas arsip digital Dinas Sosial
