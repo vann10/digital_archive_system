@@ -1,17 +1,18 @@
-'use server'
+"use server";
 
-import { db } from '../../db';
-import { users } from '../../db/schema';
-import { eq } from 'drizzle-orm';
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { db } from "../../db";
+import { users } from "../../db/schema";
+import { eq } from "drizzle-orm";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import bcrypt from "bcrypt";
 
 export async function login(prevState: any, formData: FormData) {
-  const username = formData.get('username') as string;
-  const password = formData.get('password') as string;
+  const username = formData.get("username") as string;
+  const password = formData.get("password") as string;
 
   if (!username || !password) {
-    return { success: false, message: 'Username dan password wajib diisi' };
+    return { success: false, message: "Username dan password wajib diisi" };
   }
 
   try {
@@ -23,20 +24,21 @@ export async function login(prevState: any, formData: FormData) {
       .limit(1);
 
     if (existingUser.length === 0) {
-      return { success: false, message: 'Username tidak ditemukan' };
+      return { success: false, message: "Username tidak ditemukan" };
     }
 
     const user = existingUser[0];
 
     // Cek password (WARNING: Untuk production, gunakan bcrypt/argon2 untuk hashing!)
     // Di sini kita menggunakan perbandingan string langsung sesuai request seed sederhana
-    if (user.password !== password) {
-      return { success: false, message: 'Password salah' };
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return { success: false, message: "Password salah" };
     }
 
     // Cek status aktif
     if (!user.isActive) {
-      return { success: false, message: 'Akun telah dinonaktifkan oleh admin' };
+      return { success: false, message: "Akun telah dinonaktifkan oleh admin" };
     }
 
     // Set Session Cookie
@@ -48,24 +50,23 @@ export async function login(prevState: any, formData: FormData) {
 
     // Simpan session (1 hari)
     const cookieStore = await cookies();
-    cookieStore.set('user_session', sessionData, {
+    cookieStore.set("user_session", sessionData, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV === "production",
       maxAge: 60 * 60 * 24, // 24 jam
-      path: '/',
+      path: "/",
     });
-
   } catch (error) {
-    console.error('Login error:', error);
-    return { success: false, message: 'Terjadi kesalahan sistem' };
+    console.error("Login error:", error);
+    return { success: false, message: "Terjadi kesalahan sistem" };
   }
 
   // Redirect jika sukses
-  redirect('/dashboard');
+  redirect("/dashboard");
 }
 
 export async function logout() {
   const cookieStore = await cookies();
-  cookieStore.delete('user_session');
-  redirect('/');
+  cookieStore.delete("user_session");
+  redirect("/");
 }

@@ -63,10 +63,10 @@ export async function getArsipList(
           : [desc(jenisArsip.nama)];
         break;
       
-      case "tanggal":
+      case "status":
         orderByClause = sortDir === "asc" 
-          ? [asc(arsip.createdAt), asc(arsip.id)] 
-          : [desc(arsip.createdAt), desc(arsip.id)];
+          ? [asc(arsip.status), asc(arsip.id)] 
+          : [desc(arsip.status), desc(arsip.id)];
         break;
       
       default:
@@ -91,6 +91,7 @@ export async function getArsipList(
       jenisKode: jenisArsip.kode,
       schemaConfig: jenisArsip.schemaConfig,
       createdAt: arsip.createdAt,
+      status: arsip.status,
     })
     .from(arsip)
     .leftJoin(jenisArsip, eq(arsip.jenisArsipId, jenisArsip.id))

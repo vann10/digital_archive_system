@@ -114,7 +114,7 @@ export function ArsipTable({
         if (!next["no"]) next["no"] = 60;
         if (!next["judul"]) next["judul"] = 300;
         if (!next["nomor"]) next["nomor"] = 180;
-        if (!next["tgl"]) next["tgl"] = 120;
+        if (!next["status"]) next["status"] = 120;
         if (!next["tahun"]) next["tahun"] = 80;
         if (!next["jenis"]) next["jenis"] = 150;
 
@@ -169,7 +169,7 @@ export function ArsipTable({
         if (id === "no") currentWidth = 60;
         else if (id === "judul") currentWidth = 300;
         else if (id === "nomor") currentWidth = 180;
-        else if (id === "tgl") currentWidth = 120;
+        else if (id === "status") currentWidth = 120;
         else if (id === "tahun") currentWidth = 80;
         else if (id === "jenis") currentWidth = 150;
         else currentWidth = 220;
@@ -345,20 +345,20 @@ export function ArsipTable({
               <ResizerHandle id="jenis" />
             </TableHead>
 
-            {/* Tgl Input - dengan sorting */}
+            {/* Status - dengan sorting */}
             <TableHead
               className="font-bold text-slate-700 h-11 bg-slate-50 relative border-r border-slate-100"
-              style={getWidthStyle("tgl")}
+              style={getWidthStyle("status")}
             >
               <div className="flex items-center justify-between">
-                <span>Tgl Input</span>
+                <span>Status</span>
                 <SortButton 
-                  columnKey="tanggal" 
+                  columnKey="status" 
                   currentSort={sortConfig} 
                   onSort={handleSort}
                 />
               </div>
-              <ResizerHandle id="tgl" />
+              <ResizerHandle id="status" />
             </TableHead>
 
             {/* KOLOM DINAMIS - dengan sorting */}
@@ -490,13 +490,13 @@ export function ArsipTable({
                     </Badge>
                   </TableCell>
 
-                  {/* Tanggal Input */}
+                  {/* Status */}
                   <TableCell
                     className="border-r border-slate-100/50 truncate"
-                    style={getWidthStyle("tgl")}
+                    style={getWidthStyle("status")}
                   >
                     <div className="text-xs text-slate-500 font-medium truncate">
-                      {formatDate(item.createdAt)}
+                      {formatDate(item.status)}
                     </div>
                   </TableCell>
 

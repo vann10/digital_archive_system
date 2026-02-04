@@ -4,6 +4,7 @@ import { db } from "../../db";
 import { users } from "../../db/schema";
 import { eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import bcrypt from "bcrypt";
 
 export async function getUsers() {
   try {
@@ -31,9 +32,11 @@ export async function createUser(prevState: any, formData: FormData) {
       return { success: false, message: "Username sudah digunakan" };
     }
 
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     await db.insert(users).values({
       username,
-      password, // Di aplikasi nyata, gunakan bcrypt/argon2 untuk hashing
+      password: hashedPassword, // Di aplikasi nyata, gunakan bcrypt/argon2 untuk hashing
       role,
     });
 

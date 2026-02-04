@@ -37,7 +37,7 @@ export const arsip = sqliteTable('arsip', {
   nomorArsip: text('nomor_arsip'),
   dataCustom: text('data_custom', { mode: 'json' }).$type<Record<string, any>>().default({}),
   fileUrl: text('file_url'),
-  keterangan: text('keterangan'),
+  status: text('status'),
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
   createdBy: integer('created_by').references(() => users.id),
   updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
