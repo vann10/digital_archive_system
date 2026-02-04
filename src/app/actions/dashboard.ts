@@ -1,10 +1,10 @@
 "use server";
 
 import { db } from "../../db";
-import { arsip, jenisArsip, users, logAktivitas } from "../../db/schema";
+import { arsip, jenisArsip, users } from "../../db/schema";
 import { count, desc, eq, sql, and, gte } from "drizzle-orm";
 
-// Interface untuk tipe data
+// ================= TYPES =================
 export interface DashboardStats {
   totalArsip: number;
   arsipAktif: number;
@@ -35,7 +35,7 @@ export interface ArsipTerbaru {
   tanggal: string;
 }
 
-// Warna untuk pie chart
+// ================= CONSTANT =================
 const CHART_COLORS = [
   "#3B82F6",
   "#22C55E",
@@ -45,75 +45,104 @@ const CHART_COLORS = [
   "#06B6D4",
 ];
 
-/**
- * Mendapatkan statistik utama dashboard
- */
+// ================= MAIN STATS =================
 export async function getDashboardStats(): Promise<DashboardStats> {
   try {
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth() + 1;
-    const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
-    const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const lastMonth = month === 1 ? 12 : month - 1;
+    const lastMonthYear = month === 1 ? year - 1 : year;
 
-    // 1. Total Arsip
-    const totalArsipResult = await db.select({ count: count() }).from(arsip);
-    const totalArsip = totalArsipResult[0]?.count || 0;
-
-    // 2. Arsip Aktif (arsip tahun ini dan tahun lalu)
-    const arsipAktifResult = await db
-      .select({ count: count() })
-      .from(arsip)
-      .where(eq(arsip.status, "aktif"));
-    const arsipAktif = arsipAktifResult[0]?.count || 0;
-
-    // 3. Arsip Bulan Ini
-    const startOfMonth = `${currentYear}-${String(currentMonth).padStart(2, "0")}-01`;
-    const arsipBulanIniResult = await db
-      .select({ count: count() })
-      .from(arsip)
-      .where(gte(arsip.createdAt, startOfMonth));
-    const arsipBulanIni = arsipBulanIniResult[0]?.count || 0;
-
-    // 4. Arsip Bulan Lalu (untuk perhitungan growth)
+    const startOfMonth = `${year}-${String(month).padStart(2, "0")}-01`;
     const startOfLastMonth = `${lastMonthYear}-${String(lastMonth).padStart(2, "0")}-01`;
-    const endOfLastMonth = new Date(lastMonthYear, lastMonth, 0)
-      .toISOString()
-      .split("T")[0];
-    const arsipBulanLaluResult = await db
-      .select({ count: count() })
-      .from(arsip)
-      .where(
-        and(
-          gte(arsip.createdAt, startOfLastMonth),
-          sql`${arsip.createdAt} < ${startOfMonth}`,
-        ),
-      );
-    const arsipBulanLalu = arsipBulanLaluResult[0]?.count || 0;
 
-    // 5. Pengguna Aktif
-    const penggunaAktifResult = await db.select({ count: count() }).from(users);
-    const penggunaAktif = penggunaAktifResult[0]?.count || 0;
+    // TOTAL ARSIP
+    const totalArsip = (await db.select({ count: count() }).from(arsip))[0].count;
 
-    // Hitung Growth Rate
-    const growthArsip = 12.5; // Bisa dihitung dari data historis
-    const growthArsipAktif = 5.2; // Bisa dihitung dari data historis
-    const growthBulanIni =
-      arsipBulanLalu > 0
-        ? ((arsipBulanIni - arsipBulanLalu) / arsipBulanLalu) * 100
-        : 0;
+    // ARSIP AKTIF TOTAL
+    const arsipAktif = (
+      await db
+        .select({ count: count() })
+        .from(arsip)
+        .where(eq(arsip.status, "aktif"))
+    )[0].count;
+
+    // ARSIP BULAN INI
+    const arsipBulanIni = (
+      await db
+        .select({ count: count() })
+        .from(arsip)
+        .where(gte(arsip.createdAt, startOfMonth))
+    )[0].count;
+
+    // ARSIP BULAN LALU
+    const arsipBulanLalu = (
+      await db
+        .select({ count: count() })
+        .from(arsip)
+        .where(
+          and(
+            gte(arsip.createdAt, startOfLastMonth),
+            sql`${arsip.createdAt} < ${startOfMonth}`
+          )
+        )
+    )[0].count;
+
+    // ARSIP AKTIF BULAN INI
+    const arsipAktifNow = (
+      await db
+        .select({ count: count() })
+        .from(arsip)
+        .where(
+          and(
+            eq(arsip.status, "aktif"),
+            gte(arsip.createdAt, startOfMonth)
+          )
+        )
+    )[0].count;
+
+    // ARSIP AKTIF BULAN LALU
+    const arsipAktifLast = (
+      await db
+        .select({ count: count() })
+        .from(arsip)
+        .where(
+          and(
+            eq(arsip.status, "aktif"),
+            gte(arsip.createdAt, startOfLastMonth),
+            sql`${arsip.createdAt} < ${startOfMonth}`
+          )
+        )
+    )[0].count;
+
+    // PENGGUNA
+    const penggunaAktif = (await db.select({ count: count() }).from(users))[0].count;
+
+    // GROWTH REAL
+    const growthBulanIni = arsipBulanLalu > 0
+      ? ((arsipBulanIni - arsipBulanLalu) / arsipBulanLalu) * 100
+      : 0;
+
+    const growthArsip = totalArsip > 0
+      ? ((arsipBulanIni) / totalArsip) * 100
+      : 0;
+
+    const growthArsipAktif = arsipAktifLast > 0
+      ? ((arsipAktifNow - arsipAktifLast) / arsipAktifLast) * 100
+      : 0;
 
     return {
       totalArsip,
       arsipAktif,
       arsipBulanIni,
       penggunaAktif,
-      growthArsip,
-      growthArsipAktif,
-      growthBulanIni,
+      growthArsip: Number(growthArsip.toFixed(2)),
+      growthArsipAktif: Number(growthArsipAktif.toFixed(2)),
+      growthBulanIni: Number(growthBulanIni.toFixed(2)),
     };
-  } catch (error) {
-    console.error("Error mengambil stats dashboard:", error);
+  } catch (err) {
+    console.error(err);
     return {
       totalArsip: 0,
       arsipAktif: 0,
@@ -126,170 +155,75 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   }
 }
 
-/**
- * Mendapatkan data arsip per bulan untuk bar chart
- */
+// ================= BAR CHART =================
 export async function getArsipPerBulan(): Promise<ArsipPerBulan[]> {
-  try {
-    const currentYear = new Date().getFullYear();
-    const bulanNames = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "Mei",
-      "Jun",
-      "Jul",
-      "Agu",
-      "Sep",
-      "Okt",
-      "Nov",
-      "Des",
-    ];
+  const year = new Date().getFullYear();
+  const bulan = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
 
-    // Query untuk mendapatkan jumlah arsip per bulan
-    const result = await db
-      .select({
-        month: sql<number>`CAST(strftime('%m', ${arsip.createdAt}) AS INTEGER)`,
-        total: count(),
-      })
-      .from(arsip)
-      .where(
-        sql`strftime('%Y', ${arsip.createdAt}) = ${currentYear.toString()}`,
-      )
-      .groupBy(sql`strftime('%m', ${arsip.createdAt})`);
+  const result = await db
+    .select({
+      month: sql<number>`CAST(strftime('%m', ${arsip.createdAt}) AS INTEGER)`,
+      total: count(),
+    })
+    .from(arsip)
+    .where(sql`strftime('%Y', ${arsip.createdAt}) = ${year.toString()}`)
+    .groupBy(sql`strftime('%m', ${arsip.createdAt})`);
 
-    // Buat array dengan semua bulan (set 0 jika tidak ada data)
-    const dataPerBulan = bulanNames.map((name, index) => {
-      const monthData = result.find((r) => r.month === index + 1);
-      return {
-        name,
-        total: monthData?.total || 0,
-      };
-    });
-
-    return dataPerBulan;
-  } catch (error) {
-    console.error("Error mengambil data arsip per bulan:", error);
-    // Return data kosong jika error
-    return [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "Mei",
-      "Jun",
-      "Jul",
-      "Agu",
-      "Sep",
-      "Okt",
-      "Nov",
-      "Des",
-    ].map((name) => ({
-      name,
-      total: 0,
-    }));
-  }
+  return bulan.map((name, i) => {
+    const found = result.find(r => r.month === i + 1);
+    return { name, total: found?.total || 0 };
+  });
 }
 
-/**
- * Mendapatkan distribusi jenis arsip untuk pie chart
- */
-export async function getJenisArsipDistribution(): Promise<
-  JenisArsipDistribution[]
-> {
-  try {
-    const result = await db
-      .select({
-        name: jenisArsip.nama,
-        value: count(),
-      })
-      .from(arsip)
-      .innerJoin(jenisArsip, eq(arsip.jenisArsipId, jenisArsip.id))
-      .where(eq(jenisArsip.isActive, true))
-      .groupBy(jenisArsip.id, jenisArsip.nama);
+// ================= PIE CHART =================
+export async function getJenisArsipDistribution(): Promise<JenisArsipDistribution[]> {
+  const result = await db
+    .select({ name: jenisArsip.nama, value: count() })
+    .from(arsip)
+    .innerJoin(jenisArsip, eq(arsip.jenisArsipId, jenisArsip.id))
+    .where(eq(jenisArsip.isActive, true))
+    .groupBy(jenisArsip.id, jenisArsip.nama);
 
-    // Tambahkan warna untuk setiap jenis
-    const dataWithColors = result.map((item, index) => ({
-      name: item.name,
-      value: item.value,
-      color: CHART_COLORS[index % CHART_COLORS.length],
-    }));
-
-    return dataWithColors;
-  } catch (error) {
-    console.error("Error mengambil distribusi jenis arsip:", error);
-    return [];
-  }
+  return result.map((r, i) => ({
+    ...r,
+    color: CHART_COLORS[i % CHART_COLORS.length],
+  }));
 }
 
-/**
- * Mendapatkan 5 arsip terbaru
- */
+// ================= LATEST =================
 export async function getArsipTerbaru(): Promise<ArsipTerbaru[]> {
-  try {
-    const result = await db
-      .select({
-        id: arsip.id,
-        judul: arsip.judul,
-        nomorArsip: arsip.nomorArsip,
-        jenisNama: jenisArsip.nama,
-        tahun: arsip.tahun,
-        createdAt: arsip.createdAt,
-      })
-      .from(arsip)
-      .innerJoin(jenisArsip, eq(arsip.jenisArsipId, jenisArsip.id))
-      .orderBy(desc(arsip.createdAt))
-      .limit(5);
+  const result = await db
+    .select({
+      id: arsip.id,
+      judul: arsip.judul,
+      nomorArsip: arsip.nomorArsip,
+      jenisNama: jenisArsip.nama,
+      tahun: arsip.tahun,
+      createdAt: arsip.createdAt,
+    })
+    .from(arsip)
+    .innerJoin(jenisArsip, eq(arsip.jenisArsipId, jenisArsip.id))
+    .orderBy(desc(arsip.createdAt))
+    .limit(5);
 
-    // Format data
-    const formattedData = result.map((item) => ({
-      id: item.id,
-      judul: item.judul,
-      kode: item.nomorArsip || "-",
-      jenis: item.jenisNama,
-      tahun: item.tahun,
-      tanggal: formatTanggal(item.createdAt || ""),
-    }));
-
-    return formattedData;
-  } catch (error) {
-    console.error("Error mengambil arsip terbaru:", error);
-    return [];
-  }
+  return result.map(r => ({
+    id: r.id,
+    judul: r.judul,
+    kode: r.nomorArsip || "-",
+    jenis: r.jenisNama,
+    tahun: r.tahun,
+    tanggal: new Date(r.createdAt!).toLocaleDateString("id-ID"),
+  }));
 }
 
-/**
- * Helper function untuk format tanggal
- */
-function formatTanggal(dateString: string): string {
-  try {
-    const date = new Date(dateString);
-    const day = date.getDate();
-    const month = date.getMonth() + 1;
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  } catch {
-    return "-";
-  }
-}
-
-/**
- * Mendapatkan semua data dashboard sekaligus
- */
+// ================= ALL =================
 export async function getAllDashboardData() {
-  const [stats, arsipPerBulan, jenisDistribution, arsipTerbaru] =
-    await Promise.all([
-      getDashboardStats(),
-      getArsipPerBulan(),
-      getJenisArsipDistribution(),
-      getArsipTerbaru(),
-    ]);
+  const [stats, arsipPerBulan, jenisDistribution, arsipTerbaru] = await Promise.all([
+    getDashboardStats(),
+    getArsipPerBulan(),
+    getJenisArsipDistribution(),
+    getArsipTerbaru(),
+  ]);
 
-  return {
-    stats,
-    arsipPerBulan,
-    jenisDistribution,
-    arsipTerbaru,
-  };
+  return { stats, arsipPerBulan, jenisDistribution, arsipTerbaru };
 }
