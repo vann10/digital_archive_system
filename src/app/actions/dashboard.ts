@@ -36,7 +36,14 @@ export interface ArsipTerbaru {
 }
 
 // Warna untuk pie chart
-const CHART_COLORS = ['#3B82F6', '#22C55E', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4'];
+const CHART_COLORS = [
+  "#3B82F6",
+  "#22C55E",
+  "#F59E0B",
+  "#8B5CF6",
+  "#EC4899",
+  "#06B6D4",
+];
 
 /**
  * Mendapatkan statistik utama dashboard
@@ -57,11 +64,11 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     const arsipAktifResult = await db
       .select({ count: count() })
       .from(arsip)
-      .where(gte(arsip.tahun, currentYear - 1));
+      .where(eq(arsip.status, "aktif"));
     const arsipAktif = arsipAktifResult[0]?.count || 0;
 
     // 3. Arsip Bulan Ini
-    const startOfMonth = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+    const startOfMonth = `${currentYear}-${String(currentMonth).padStart(2, "0")}-01`;
     const arsipBulanIniResult = await db
       .select({ count: count() })
       .from(arsip)
@@ -69,31 +76,32 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     const arsipBulanIni = arsipBulanIniResult[0]?.count || 0;
 
     // 4. Arsip Bulan Lalu (untuk perhitungan growth)
-    const startOfLastMonth = `${lastMonthYear}-${String(lastMonth).padStart(2, '0')}-01`;
-    const endOfLastMonth = new Date(lastMonthYear, lastMonth, 0).toISOString().split('T')[0];
+    const startOfLastMonth = `${lastMonthYear}-${String(lastMonth).padStart(2, "0")}-01`;
+    const endOfLastMonth = new Date(lastMonthYear, lastMonth, 0)
+      .toISOString()
+      .split("T")[0];
     const arsipBulanLaluResult = await db
       .select({ count: count() })
       .from(arsip)
       .where(
         and(
           gte(arsip.createdAt, startOfLastMonth),
-          sql`${arsip.createdAt} < ${startOfMonth}`
-        )
+          sql`${arsip.createdAt} < ${startOfMonth}`,
+        ),
       );
     const arsipBulanLalu = arsipBulanLaluResult[0]?.count || 0;
 
     // 5. Pengguna Aktif
-    const penggunaAktifResult = await db
-      .select({ count: count() })
-      .from(users);
+    const penggunaAktifResult = await db.select({ count: count() }).from(users);
     const penggunaAktif = penggunaAktifResult[0]?.count || 0;
 
     // Hitung Growth Rate
     const growthArsip = 12.5; // Bisa dihitung dari data historis
     const growthArsipAktif = 5.2; // Bisa dihitung dari data historis
-    const growthBulanIni = arsipBulanLalu > 0 
-      ? ((arsipBulanIni - arsipBulanLalu) / arsipBulanLalu) * 100 
-      : 0;
+    const growthBulanIni =
+      arsipBulanLalu > 0
+        ? ((arsipBulanIni - arsipBulanLalu) / arsipBulanLalu) * 100
+        : 0;
 
     return {
       totalArsip,
@@ -124,8 +132,21 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 export async function getArsipPerBulan(): Promise<ArsipPerBulan[]> {
   try {
     const currentYear = new Date().getFullYear();
-    const bulanNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-    
+    const bulanNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "Mei",
+      "Jun",
+      "Jul",
+      "Agu",
+      "Sep",
+      "Okt",
+      "Nov",
+      "Des",
+    ];
+
     // Query untuk mendapatkan jumlah arsip per bulan
     const result = await db
       .select({
@@ -133,12 +154,14 @@ export async function getArsipPerBulan(): Promise<ArsipPerBulan[]> {
         total: count(),
       })
       .from(arsip)
-      .where(sql`strftime('%Y', ${arsip.createdAt}) = ${currentYear.toString()}`)
+      .where(
+        sql`strftime('%Y', ${arsip.createdAt}) = ${currentYear.toString()}`,
+      )
       .groupBy(sql`strftime('%m', ${arsip.createdAt})`);
 
     // Buat array dengan semua bulan (set 0 jika tidak ada data)
     const dataPerBulan = bulanNames.map((name, index) => {
-      const monthData = result.find(r => r.month === index + 1);
+      const monthData = result.find((r) => r.month === index + 1);
       return {
         name,
         total: monthData?.total || 0,
@@ -149,7 +172,20 @@ export async function getArsipPerBulan(): Promise<ArsipPerBulan[]> {
   } catch (error) {
     console.error("Error mengambil data arsip per bulan:", error);
     // Return data kosong jika error
-    return ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'].map(name => ({
+    return [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "Mei",
+      "Jun",
+      "Jul",
+      "Agu",
+      "Sep",
+      "Okt",
+      "Nov",
+      "Des",
+    ].map((name) => ({
       name,
       total: 0,
     }));
@@ -159,7 +195,9 @@ export async function getArsipPerBulan(): Promise<ArsipPerBulan[]> {
 /**
  * Mendapatkan distribusi jenis arsip untuk pie chart
  */
-export async function getJenisArsipDistribution(): Promise<JenisArsipDistribution[]> {
+export async function getJenisArsipDistribution(): Promise<
+  JenisArsipDistribution[]
+> {
   try {
     const result = await db
       .select({
@@ -205,13 +243,13 @@ export async function getArsipTerbaru(): Promise<ArsipTerbaru[]> {
       .limit(5);
 
     // Format data
-    const formattedData = result.map(item => ({
+    const formattedData = result.map((item) => ({
       id: item.id,
       judul: item.judul,
-      kode: item.nomorArsip || '-',
+      kode: item.nomorArsip || "-",
       jenis: item.jenisNama,
       tahun: item.tahun,
-      tanggal: formatTanggal(item.createdAt || ''),
+      tanggal: formatTanggal(item.createdAt || ""),
     }));
 
     return formattedData;
@@ -232,7 +270,7 @@ function formatTanggal(dateString: string): string {
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
   } catch {
-    return '-';
+    return "-";
   }
 }
 
@@ -240,12 +278,13 @@ function formatTanggal(dateString: string): string {
  * Mendapatkan semua data dashboard sekaligus
  */
 export async function getAllDashboardData() {
-  const [stats, arsipPerBulan, jenisDistribution, arsipTerbaru] = await Promise.all([
-    getDashboardStats(),
-    getArsipPerBulan(),
-    getJenisArsipDistribution(),
-    getArsipTerbaru(),
-  ]);
+  const [stats, arsipPerBulan, jenisDistribution, arsipTerbaru] =
+    await Promise.all([
+      getDashboardStats(),
+      getArsipPerBulan(),
+      getJenisArsipDistribution(),
+      getArsipTerbaru(),
+    ]);
 
   return {
     stats,

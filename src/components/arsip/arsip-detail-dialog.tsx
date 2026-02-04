@@ -20,9 +20,15 @@ import { Badge } from "../ui/badge";
 import { formatDate } from "../../lib/utils";
 
 // Helper untuk komponen penampil teks auto-grow
-function ReadOnlyField({ value, isLongText = false }: { value: any, isLongText?: boolean }) {
+function ReadOnlyField({
+  value,
+  isLongText = false,
+}: {
+  value: any;
+  isLongText?: boolean;
+}) {
   return (
-    <div 
+    <div
       className={`
         w-full rounded-md border border-slate-200 bg-slate-50/50 px-3 py-2 text-sm text-slate-700 shadow-sm 
         whitespace-pre-wrap break-words
@@ -41,39 +47,44 @@ export function ArsipDetailDialog({ item }: { item: any }) {
   const [isLoading, setIsLoading] = useState(false);
 
   // Parse Data
-  const dataCustom = typeof item.dataCustom === "string" 
-    ? JSON.parse(item.dataCustom) 
-    : item.dataCustom || {};
+  const dataCustom =
+    typeof item.dataCustom === "string"
+      ? JSON.parse(item.dataCustom)
+      : item.dataCustom || {};
 
-  const schema = typeof item.schemaConfig === "string"
-    ? JSON.parse(item.schemaConfig)
-    : item.schemaConfig || [];
+  const schema =
+    typeof item.schemaConfig === "string"
+      ? JSON.parse(item.schemaConfig)
+      : item.schemaConfig || [];
 
   // State Form
   const [formData, setFormData] = useState({
     judul: item.judul,
     nomorArsip: item.nomorArsip,
     tahun: item.tahun,
-    ...dataCustom
+    status: item.status ?? "",
+    ...Object.fromEntries(
+      Object.entries(dataCustom).map(([k, v]) => [k, v ?? ""]),
+    ),
+    ...dataCustom,
   });
-
-  
 
   const handleSave = async () => {
     setIsLoading(true);
     try {
-      const { judul, nomorArsip, tahun, ...customFields } = formData;
-      
+      const { judul, nomorArsip, tahun, status, ...customFields } = formData;
+
       const payload = {
         id: item.id,
         judul,
         nomorArsip,
         tahun: Number(tahun),
-        dataCustom: customFields // Sisanya masuk ke JSON
+        status,
+        dataCustom: customFields, // Sisanya masuk ke JSON
       };
 
       await updateArsip(payload);
-      
+
       setIsEditing(false);
       setOpen(false);
       router.refresh();
@@ -86,26 +97,33 @@ export function ArsipDetailDialog({ item }: { item: any }) {
   };
 
   // Filter schema agar tidak menampilkan kolom system ganda (karena sudah di-handle manual di atas)
-  const customSchema = schema.filter((f: any) => 
-    !['judul', 'nomorArsip', 'tahun'].includes(f.id)
+  const customSchema = schema.filter(
+    (f: any) => !["judul", "nomorArsip", "tahun"].includes(f.id),
   );
 
   return (
-    <Dialog open={open} onOpenChange={(val) => {
-      setOpen(val);
-      if (!val) setIsEditing(false); // Reset mode saat tutup
-    }}>
+    <Dialog
+      open={open}
+      onOpenChange={(val) => {
+        setOpen(val);
+        if (!val) setIsEditing(false); // Reset mode saat tutup
+      }}
+    >
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600" title="Lihat Detail">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-slate-400 hover:text-blue-600"
+          title="Lihat Detail"
+        >
           <Eye className="w-4 h-4" />
         </Button>
       </DialogTrigger>
-      
+
       {/* MAX-H-SCREEN & OVERFLOW-Y-AUTO: 
          Penting agar jika konten memanjang ke bawah, dialog tetap bisa discroll 
       */}
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col gap-0 p-0">
-        
         {/* HEADER */}
         <DialogHeader className="p-6 pb-4 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10 backdrop-blur-sm">
           <div className="flex items-center justify-between">
@@ -126,12 +144,12 @@ export function ArsipDetailDialog({ item }: { item: any }) {
                 </div>
               </div>
             </div>
-            
+
             {/* Toggle Edit Mode */}
             {!isEditing && (
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setIsEditing(true)}
                 className="gap-2 text-blue-600 border-blue-200 hover:bg-blue-50"
               >
@@ -148,15 +166,19 @@ export function ArsipDetailDialog({ item }: { item: any }) {
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
               Informasi Utama
             </h4>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Judul (Full Width) */}
               <div className="md:col-span-2 space-y-2">
-                <Label className="text-slate-600 text-xs uppercase font-semibold">Judul / Perihal</Label>
+                <Label className="text-slate-600 text-xs uppercase font-semibold">
+                  Judul / Perihal
+                </Label>
                 {isEditing ? (
-                  <Textarea 
-                    value={formData.judul} 
-                    onChange={e => setFormData({...formData, judul: e.target.value})}
+                  <Textarea
+                    value={formData.judul}
+                    onChange={(e) =>
+                      setFormData({ ...formData, judul: e.target.value })
+                    }
                     className="font-medium min-h-[80px]"
                   />
                 ) : (
@@ -167,11 +189,15 @@ export function ArsipDetailDialog({ item }: { item: any }) {
 
               {/* Nomor Arsip */}
               <div className="space-y-2">
-                <Label className="text-slate-600 text-xs uppercase font-semibold">Nomor Arsip</Label>
+                <Label className="text-slate-600 text-xs uppercase font-semibold">
+                  Nomor Arsip
+                </Label>
                 {isEditing ? (
-                  <Input 
-                    value={formData.nomorArsip} 
-                    onChange={e => setFormData({...formData, nomorArsip: e.target.value})}
+                  <Input
+                    value={formData.nomorArsip}
+                    onChange={(e) =>
+                      setFormData({ ...formData, nomorArsip: e.target.value })
+                    }
                   />
                 ) : (
                   <ReadOnlyField value={formData.nomorArsip} />
@@ -180,15 +206,36 @@ export function ArsipDetailDialog({ item }: { item: any }) {
 
               {/* Tahun */}
               <div className="space-y-2">
-                <Label className="text-slate-600 text-xs uppercase font-semibold">Tahun</Label>
+                <Label className="text-slate-600 text-xs uppercase font-semibold">
+                  Tahun
+                </Label>
                 {isEditing ? (
-                  <Input 
+                  <Input
                     type="number"
-                    value={formData.tahun} 
-                    onChange={e => setFormData({...formData, tahun: e.target.value})}
+                    value={formData.tahun}
+                    onChange={(e) =>
+                      setFormData({ ...formData, tahun: e.target.value })
+                    }
                   />
                 ) : (
                   <ReadOnlyField value={formData.tahun} />
+                )}
+              </div>
+
+              {/* Status */}
+              <div className="space-y-2">
+                <Label className="text-slate-600 text-xs uppercase font-semibold">
+                  Status
+                </Label>
+                {isEditing ? (
+                  <Input
+                    value={formData.status}
+                    onChange={(e) =>
+                      setFormData({ ...formData, status: e.target.value })
+                    }
+                  />
+                ) : (
+                  <ReadOnlyField value={formData.status} />
                 )}
               </div>
             </div>
@@ -201,36 +248,50 @@ export function ArsipDetailDialog({ item }: { item: any }) {
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
               Data Spesifik
             </h4>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
               {customSchema.map((field: any) => (
-                <div 
-                  key={field.id} 
-                  className={field.type === 'longtext' ? "md:col-span-2 space-y-2" : "space-y-2"}
+                <div
+                  key={field.id}
+                  className={
+                    field.type === "longtext"
+                      ? "md:col-span-2 space-y-2"
+                      : "space-y-2"
+                  }
                 >
                   <Label className="text-slate-600 text-xs uppercase font-semibold">
                     {field.label}
                   </Label>
-                  
+
                   {isEditing ? (
-                    field.type === 'longtext' ? (
-                      <Textarea 
+                    field.type === "longtext" ? (
+                      <Textarea
                         value={formData[field.id] || ""}
-                        onChange={(e) => setFormData({...formData, [field.id]: e.target.value})}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            [field.id]: e.target.value,
+                          })
+                        }
                         className="min-h-[100px]"
                       />
                     ) : (
-                      <Input 
-                        type={field.type === 'number' ? 'number' : 'text'}
+                      <Input
+                        type={field.type === "number" ? "number" : "text"}
                         value={formData[field.id] || ""}
-                        onChange={(e) => setFormData({...formData, [field.id]: e.target.value})}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            [field.id]: e.target.value,
+                          })
+                        }
                       />
                     )
                   ) : (
                     // Logic View Mode: Auto Grow Div
-                    <ReadOnlyField 
-                      value={formData[field.id]} 
-                      isLongText={field.type === 'longtext'} 
+                    <ReadOnlyField
+                      value={formData[field.id]}
+                      isLongText={field.type === "longtext"}
                     />
                   )}
                 </div>
@@ -248,10 +309,18 @@ export function ArsipDetailDialog({ item }: { item: any }) {
         {/* FOOTER ACTIONS */}
         {isEditing && (
           <DialogFooter className="p-4 border-t border-slate-100 bg-slate-50/50">
-            <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isLoading}>
+            <Button
+              variant="outline"
+              onClick={() => setIsEditing(false)}
+              disabled={isLoading}
+            >
               Batal
             </Button>
-            <Button onClick={handleSave} disabled={isLoading} className="bg-blue-600 hover:bg-blue-700">
+            <Button
+              onClick={handleSave}
+              disabled={isLoading}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
               {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Simpan Perubahan
             </Button>

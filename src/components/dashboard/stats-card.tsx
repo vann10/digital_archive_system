@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { 
   FileText, 
   FolderOpen, 
@@ -100,10 +99,6 @@ export function StatsCards({
             <h3 className="text-2xl font-bold text-slate-900">
               {penggunaAktif}
             </h3>
-            <div className="flex items-center mt-2 text-xs font-medium text-slate-500">
-              <Minus className="w-3 h-3 mr-1" />
-              Stabil
-            </div>
           </div>
           <div className="p-3 bg-blue-50 rounded-lg">
             <Users className="w-5 h-5 text-blue-600" />

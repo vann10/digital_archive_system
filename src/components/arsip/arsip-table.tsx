@@ -496,7 +496,7 @@ export function ArsipTable({
                     style={getWidthStyle("status")}
                   >
                     <div className="text-xs text-slate-500 font-medium truncate">
-                      {formatDate(item.status)}
+                      {item.status ?? "-"}
                     </div>
                   </TableCell>
 

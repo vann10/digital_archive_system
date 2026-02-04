@@ -10,7 +10,7 @@ export async function updateArsip(payload: any) {
   try {
     // Destructure data dari payload tunggal
     // Pastikan struktur payload di komponen mengirim 'dataCustom' yang sudah terpisah
-    const { id, judul, nomorArsip, tahun, dataCustom } = payload;
+    const { id, judul, nomorArsip, tahun, status, dataCustom } = payload;
 
     // Validasi
     if (!id) return { success: false, message: "ID Arsip tidak ditemukan" };
@@ -21,9 +21,8 @@ export async function updateArsip(payload: any) {
         judul,
         nomorArsip,
         tahun: parseInt(tahun),
-        // Simpan dataCustom yang dikirim dari client (sudah dalam bentuk object)
+        status,
         dataCustom: dataCustom, 
-        // Format timestamp untuk SQLite (YYYY-MM-DD HH:MM:SS)
         updatedAt: new Date().toISOString().replace('T', ' ').split('.')[0] 
       })
       .where(eq(arsip.id, id));
