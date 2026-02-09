@@ -30,26 +30,33 @@ import {
 import { saveBulkArsip } from "../../app/actions/input-arsip";
 
 // --- TYPE DEFINITIONS ---
+// Disesuaikan dengan tabel 'schema_config' di DB
 type SchemaConfig = {
-  id: string;
-  label: string;
-  type: string;
-  status: string;
-  required: boolean;
-  group?: string;
+  id: number;
+  jenisId: number;
+  namaKolom: string;   // Key untuk database
+  labelKolom: string;  // Label untuk UI
+  tipeData: string;    // TEXT, INTEGER, dll
+  isRequired: boolean;
+  isVisibleList: boolean;
+  defaultValue: string | null;
+  urutan: number | null;
+};
+
+type JenisArsipWithSchema = {
+  id: number;
+  namaJenis: string;
+  namaTabel: string;
+  prefixKode: string;
+  schemaConfig: SchemaConfig[]; // Array langsung, bukan JSON string
 };
 
 type Props = {
-  jenisArsipList: any[];
+  jenisArsipList: JenisArsipWithSchema[];
 };
 
 // Default widths
-const DEFAULT_WIDTHS: Record<string, number> = {
-  fixed_judul: 300,
-  fixed_status: 140,
-  fixed_nomor: 150,
-  fixed_tahun: 100,
-};
+const DEFAULT_WIDTHS: Record<string, number> = {};
 const DEFAULT_DYNAMIC_WIDTH = 200;
 
 export function SpreadsheetInput({ jenisArsipList }: Props) {
@@ -61,10 +68,10 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
   const [rows, setRows] = useState<any[]>([{}]);
   const [isSaving, setIsSaving] = useState(false);
   const [addCount, setAddCount] = useState<number>(1);
+  const userId = 5;
 
   // --- STATE RESIZE ---
-  const [colWidths, setColWidths] =
-    useState<Record<string, number>>(DEFAULT_WIDTHS);
+  const [colWidths, setColWidths] = useState<Record<string, number>>(DEFAULT_WIDTHS);
 
   // Ref untuk drag logic
   const dragRef = useRef<{
@@ -86,40 +93,28 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
     );
 
     if (jenis && jenis.schemaConfig) {
-      try {
-        const config: SchemaConfig[] =
-          typeof jenis.schemaConfig === "string"
-            ? JSON.parse(jenis.schemaConfig)
-            : jenis.schemaConfig;
+      // Data sudah berupa array object dari DB, tidak perlu JSON.parse
+      setSchema(jenis.schemaConfig);
 
-        setSchema(config || []);
-
-        // Reset Widths
-        const newWidths = { ...DEFAULT_WIDTHS };
-        config?.forEach((col) => {
-          newWidths[col.id] = DEFAULT_DYNAMIC_WIDTH;
-        });
-        setColWidths(newWidths);
-      } catch (e) {
-        console.error("Gagal parse schema config", e);
-        setSchema([]);
-      }
+      // Reset Widths menggunakan ID unik kolom
+      const newWidths: Record<string, number> = {};
+      jenis.schemaConfig.forEach((col) => {
+        newWidths[col.id.toString()] = DEFAULT_DYNAMIC_WIDTH;
+      });
+      setColWidths(newWidths);
+    } else {
+      setSchema([]);
     }
 
     setRows([{}]);
   }, [selectedJenisId, jenisArsipList]);
 
   // --- LOGIC RESIZING (MOUSE EVENTS) ---
-
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!dragRef.current.activeColId) return;
-
-    // Mencegah select text saat drag
     e.preventDefault();
-
     const deltaX = e.clientX - dragRef.current.startX;
-    const newWidth = Math.max(80, dragRef.current.startWidth + deltaX); // Minimal 80px
-
+    const newWidth = Math.max(80, dragRef.current.startWidth + deltaX);
     setColWidths((prev) => ({
       ...prev,
       [dragRef.current.activeColId!]: newWidth,
@@ -135,28 +130,23 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
 
   const startResize = (e: React.MouseEvent, colId: string) => {
     e.preventDefault();
-    e.stopPropagation(); // Penting: Jangan trigger event klik lain
-
+    e.stopPropagation();
     dragRef.current = {
       activeColId: colId,
       startX: e.clientX,
       startWidth: colWidths[colId] || 150,
     };
-
     document.body.style.cursor = "col-resize";
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
   };
 
-  // --- KOMPONEN RESIZER ---
-  // Perbaikan: Area hit lebih besar (w-4) tapi garis visual tipis
   const Resizer = ({ colId }: { colId: string }) => (
     <div
       className="absolute top-0 right-0 bottom-0 w-4 cursor-col-resize z-20 flex justify-center -mr-2 group/resizer"
       onMouseDown={(e) => startResize(e, colId)}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Garis visual yang muncul saat hover area resizer */}
       <div className="w-[2px] h-full bg-blue-300 opacity-0 group-hover/resizer:opacity-100 transition-opacity" />
     </div>
   );
@@ -164,9 +154,7 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
   // --- HANDLERS DATA ---
   const addMultipleRows = () => {
     const count = addCount > 0 ? addCount : 1;
-    // Buat array kosong sejumlah 'count'
     const newRows = Array(count).fill({});
-    // Gabungkan dengan rows yang sudah ada
     setRows((prev) => [...prev, ...newRows]);
   };
 
@@ -176,36 +164,40 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
     newRows.splice(index, 1);
     setRows(newRows);
   };
+
   const handleInputChange = (index: number, field: string, value: string) => {
     const newRows = [...rows];
     newRows[index] = { ...newRows[index], [field]: value };
     setRows(newRows);
   };
+
   const handleSave = async () => {
-    if (!selectedJenisId || !rows[0].judul) {
+    // Validasi minimal 1 kolom terisi untuk baris pertama
+    if (!selectedJenisId || Object.keys(rows[0]).length === 0) {
       alert("Mohon lengkapi data.");
       return;
     }
+    
+
     setIsSaving(true);
     try {
-      const result = await saveBulkArsip(parseInt(selectedJenisId), rows);
+      const result = await saveBulkArsip(
+        rows,
+        parseInt(selectedJenisId),
+        userId
+      );
       if (result.success) {
         alert(`Sukses! ${rows.length} data tersimpan.`);
         setRows([{}]);
         router.refresh();
-      } else {
-        alert(`Gagal: ${result.message}`);
       }
-    } catch {
-      alert("Error sistem.");
+    } catch (e: any) {
+      console.error(e);
+      alert("Gagal menyimpan: " + e.message);
     } finally {
       setIsSaving(false);
     }
   };
-
-  const uniqueGroups = Array.from(
-    new Set(schema.map((col) => col.group || "Detail Tambahan")),
-  );
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -223,7 +215,7 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
             <SelectContent>
               {jenisArsipList.map((item) => (
                 <SelectItem key={item.id} value={item.id.toString()}>
-                  {item.nama} ({item.kode})
+                  {item.namaJenis} ({item.prefixKode})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -234,13 +226,12 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
       {selectedJenisId ? (
         <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden flex flex-col">
           <div className="overflow-x-auto relative">
-            {/* PERBAIKAN 1: Hapus w-full, gunakan min-w-full & table-fixed */}
             <Table
               className="min-w-full table-fixed border-collapse"
-              style={{ width: "max-content" }} // Trick agar tabel mau melebar
+              style={{ width: "max-content" }}
             >
               <TableHeader>
-                {/* BARIS 1: NAMA GRUP */}
+                {/* BARIS 1: GROUP HEADER (OPSIONAL - DISEDERHANAKAN) */}
                 <TableRow className="bg-slate-50 border-b border-slate-200">
                   <TableHead
                     rowSpan={2}
@@ -248,34 +239,37 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
                   >
                     No
                   </TableHead>
+                  <TableHead 
+                    colSpan={schema.length} 
+                    className="text-center font-semibold text-slate-700 bg-slate-100 border-b border-slate-200 py-2"
+                  >
+                    Input Data Arsip
+                  </TableHead>
                 </TableRow>
 
-                {/* BARIS 2: LABEL KOLOM SPESIFIK */}
+                {/* BARIS 2: LABEL KOLOM DINAMIS */}
                 <TableRow className="bg-white border-b border-slate-200 shadow-sm">
-                  {/* Dynamic Columns */}
-                  {uniqueGroups.map(() =>
-                    schema.map((col) => (
-                      <TableHead
-                        key={col.id}
-                        className="relative text-slate-600 font-medium border-r border-slate-100 bg-slate-50/30 align-middle px-2 select-none"
-                        style={{
-                          width: colWidths[col.id],
-                          minWidth: colWidths[col.id],
-                          maxWidth: colWidths[col.id],
-                        }}
-                      >
-                        <div className="truncate w-full" title={col.label}>
-                          {col.label}
-                        </div>
-                        {col.required && (
-                          <span className="text-red-400 ml-0.5 absolute top-1 right-2 text-[10px]">
-                            *
-                          </span>
-                        )}
-                        <Resizer colId={col.id} />
-                      </TableHead>
-                    )),
-                  )}
+                  {schema.map((col) => (
+                    <TableHead
+                      key={col.id}
+                      className="relative text-slate-600 font-medium border-r border-slate-100 bg-slate-50/30 align-middle px-2 select-none"
+                      style={{
+                        width: colWidths[col.id.toString()],
+                        minWidth: colWidths[col.id.toString()],
+                        maxWidth: colWidths[col.id.toString()],
+                      }}
+                    >
+                      <div className="truncate w-full" title={col.labelKolom}>
+                        {col.labelKolom}
+                      </div>
+                      {col.isRequired && (
+                        <span className="text-red-400 ml-0.5 absolute top-1 right-2 text-[10px]">
+                          *
+                        </span>
+                      )}
+                      <Resizer colId={col.id.toString()} />
+                    </TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
 
@@ -289,32 +283,31 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
                       {index + 1}
                     </TableCell>
 
-                    {/* Input Dynamic */}
-                    {uniqueGroups.map((groupName) =>
-                      schema.map((col) => (
-                        <TableCell
-                          key={col.id}
-                          className="p-1 border-r border-slate-100 overflow-hidden"
-                        >
-                          <Input
-                            type={
-                              col.type === "date"
-                                ? "date"
-                                : col.type === "number"
-                                  ? "number"
-                                  : "text"
-                            }
-                            className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-blue-500 h-9 rounded-sm bg-transparent text-slate-700 w-full"
-                            value={row[col.id] || ""}
-                            onChange={(e) =>
-                              handleInputChange(index, col.id, e.target.value)
-                            }
-                          />
-                        </TableCell>
-                      )),
-                    )}
+                    {schema.map((col) => (
+                      <TableCell
+                        key={col.id}
+                        className="p-1 border-r border-slate-100 overflow-hidden"
+                      >
+                        <Input
+                          type={
+                            col.tipeData === "DATE"
+                              ? "date"
+                              : col.tipeData === "INTEGER"
+                                ? "number"
+                                : "text"
+                          }
+                          className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-blue-500 h-9 rounded-sm bg-transparent text-slate-700 w-full"
+                          // Gunakan 'namaKolom' sebagai key data
+                          value={row[col.namaKolom] || ""}
+                          onChange={(e) =>
+                            handleInputChange(index, col.namaKolom, e.target.value)
+                          }
+                          required={col.isRequired}
+                        />
+                      </TableCell>
+                    ))}
 
-                    <TableCell className="text-center p-0">
+                    <TableCell className="text-center p-0 w-[50px]">
                       <div className="flex justify-center opacity-100 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => removeRow(index)}
@@ -338,7 +331,6 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
             </div>
 
             <div className="flex gap-3 w-full md:w-auto items-center">
-              {/* INPUT JUMLAH BARIS */}
               <div className="flex items-center gap-2 bg-white p-1 rounded-md border border-slate-200">
                 <Input
                   type="number"
@@ -374,10 +366,8 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
             </div>
           </div>
         </div>
-      ) : // ... Empty state ...
-      null}
+      ) : null}
 
-      {/* ... render empty state jika null ... */}
       {!selectedJenisId && (
         <div className="h-[400px] border-2 border-dashed border-slate-300 rounded-xl bg-slate-50/50 flex flex-col items-center justify-center text-slate-400 gap-4">
           <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm">

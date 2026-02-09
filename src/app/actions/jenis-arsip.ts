@@ -2,154 +2,287 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "../../db";
-import { jenisArsip, arsip } from "../../db/schema";
-import { eq, sql, and, like } from "drizzle-orm";
-import { Search } from "lucide-react";
+import { jenisArsip, schemaConfig } from "../../db/schema";
+import { eq, sql, like, and, asc } from "drizzle-orm";
 
-// Helper untuk membuat kode unik (slug) dari nama
-function generateKode(text: string) {
-  return text
-    .toString()
+/* =========================
+   HELPERS
+========================= */
+
+function generateSafeTableName(name: string) {
+  const cleanName = name
     .toLowerCase()
     .trim()
-    .replace(/\s+/g, "-") // Ganti spasi dengan -
-    .replace(/[^\w\-]+/g, "") // Hapus karakter non-word
-    .replace(/\-\-+/g, "-"); // Ganti dash berulang dengan satu dash
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  return `arsip_${cleanName}`;
 }
 
-// --- ACTIONS ---
+function generateColumnName(label: string) {
+  return label
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_");
+}
+
+/* =========================
+   GET LIST
+========================= */
 
 export async function getJenisArsipList(search?: string) {
   try {
-    const filters = [eq(jenisArsip.isActive, true)];
+    const filters = [];
 
     if (search) {
-      filters.push(like(jenisArsip.nama, `%${search}`));
+      filters.push(like(jenisArsip.namaJenis, `%${search}%`));
     }
 
     const list = await db
       .select({
         id: jenisArsip.id,
-        nama: jenisArsip.nama,
-        kode: jenisArsip.kode,
+        namaJenis: jenisArsip.namaJenis,
+        namaTabel: jenisArsip.namaTabel,
+        prefixKode: jenisArsip.prefixKode,
         deskripsi: jenisArsip.deskripsi,
-        schemaConfig: jenisArsip.schemaConfig,
-        isActive: jenisArsip.isActive,
-        arsipCount: sql<number>`count(${arsip.id})`,
+        createdAt: jenisArsip.createdAt,
       })
       .from(jenisArsip)
-      .leftJoin(arsip, eq(jenisArsip.id, arsip.jenisArsipId))
-      .where(and(...filters))
-      .groupBy(jenisArsip.id)
-      .orderBy(jenisArsip.id);
+      .where(and(...filters));
 
-    // Hitung jumlah kolom dari panjang array JSON di schemaConfig
-    return list.map((item) => ({
-      ...item,
-      // Pastikan schemaConfig dibaca sebagai array
-      colCount: Array.isArray(item.schemaConfig) ? item.schemaConfig.length : 0,
-      arsipCount: Number(item.arsipCount) || 0,
-    }));
+    // hitung jumlah data tiap tabel
+    const result = [];
+
+    for (const item of list) {
+      let totalData = 0;
+
+      try {
+        const countResult = db.get(
+          sql.raw(`SELECT COUNT(*) as total FROM ${item.namaTabel}`)
+        ) as any;
+
+        totalData = countResult?.total ?? 0;
+      } catch {
+        totalData = 0;
+      }
+
+      result.push({
+        ...item,
+        jumlahData: totalData,
+      });
+    }
+
+    return result;
+
   } catch (error) {
     console.error("Gagal mengambil daftar jenis arsip:", error);
     return [];
   }
 }
 
+
+/* =========================
+   GET DETAIL
+========================= */
+
 export async function getJenisArsipDetail(id: number) {
   try {
-    // Ambil data jenis arsip berdasarkan ID
-    const result = await db
+    const jenis = await db.query.jenisArsip.findFirst({
+      where: eq(jenisArsip.id, id),
+    });
+
+    if (!jenis) return { jenis: null, schema: [] };
+
+    const schema = await db
       .select()
-      .from(jenisArsip)
-      .where(eq(jenisArsip.id, id))
-      .limit(1);
+      .from(schemaConfig)
+      .where(eq(schemaConfig.jenisId, id))
+      .orderBy(asc(schemaConfig.urutan));
 
-    const jenis = result[0];
-
-    if (!jenis) {
-      return { jenis: null, schema: [] };
-    }
-
-    return {
-      jenis,
-      // Ambil schema langsung dari kolom JSON schemaConfig
-      schema: (jenis.schemaConfig as any[]) || [],
-    };
+    return { jenis, schema };
   } catch (error) {
     console.error(`Gagal mengambil detail jenis arsip ${id}:`, error);
     return { jenis: null, schema: [] };
   }
 }
 
+/* =========================
+   SAVE
+========================= */
+
 export async function saveJenisArsip(prevState: any, formData: FormData) {
   const id = formData.get("id");
-  const nama = formData.get("nama") as string;
-  const deskripsi = formData.get("deskripsi") as string;
+  const namaJenis = formData.get("nama_jenis") as string;
+  const prefixKode = formData.get("prefix_kode") as string;
   const rawSchema = formData.get("schema_json") as string;
+  const deskripsi = formData.get("deskripsi") as string;
 
-  const schemaFields = JSON.parse(rawSchema);
-
-  // Generate kode otomatis dari nama untuk memenuhi constraint 'kode'
-  const kode = generateKode(nama);
+  const uiSchemaInfo = JSON.parse(rawSchema);
+  const namaTabel = generateSafeTableName(namaJenis);
 
   try {
+    /* =====================
+       EDIT MODE
+    ===================== */
     if (id) {
-      // UPDATE
-      await db
-        .update(jenisArsip)
-        .set({
-          nama,
-          deskripsi,
-          // Simpan array schema langsung ke kolom JSON
-          schemaConfig: schemaFields,
-          // Opsional: update kode jika nama berubah (hati-hati duplikat)
-          // kode: kode
-        })
-        .where(eq(jenisArsip.id, Number(id)));
-    } else {
-      // INSERT
-      await db.insert(jenisArsip).values({
-        nama,
-        kode, // Wajib diisi & Unique
-        deskripsi,
-        schemaConfig: schemaFields,
-        isActive: true,
+      const jenisId = Number(id);
+
+      db.transaction((tx) => {
+        tx.update(jenisArsip)
+          .set({ namaJenis, prefixKode, deskripsi })
+          .where(eq(jenisArsip.id, jenisId))
+          .run();
+
+        tx.delete(schemaConfig)
+          .where(eq(schemaConfig.jenisId, jenisId))
+          .run();
+
+        for (const [index, field] of uiSchemaInfo.entries()) {
+          tx.insert(schemaConfig).values({
+            jenisId: jenisId,
+            labelKolom: field.label,
+            namaKolom: field.name || generateColumnName(field.label),
+            tipeData: field.type || "TEXT",
+            isRequired: field.required ? true : false,
+            urutan: index + 1,
+          }).run();
+        }
       });
+
+      revalidatePath("/arsip/jenis");
+      return { success: true, message: "Konfigurasi berhasil diperbarui." };
     }
+
+    /* =====================
+       INSERT BARU
+    ===================== */
+
+    const existingTable = db.get(
+      sql`SELECT name FROM sqlite_master WHERE type='table' AND name=${namaTabel}`
+    );
+
+    if (existingTable) {
+      return { success: false, message: `Tabel '${namaTabel}' sudah ada.` };
+    }
+
+    db.transaction((tx) => {
+
+      // Insert header
+      const result = tx.insert(jenisArsip)
+        .values({
+          namaJenis,
+          namaTabel,
+          prefixKode,
+          deskripsi
+        })
+        .run();
+
+      const newJenisId = Number(result.lastInsertRowid);
+
+      // Definisi kolom fisik
+      const columnDefinitions: string[] = [];
+
+      columnDefinitions.push(`id INTEGER PRIMARY KEY AUTOINCREMENT`);
+      columnDefinitions.push(`nomor_urut_internal INTEGER`);
+      columnDefinitions.push(`kode_unik TEXT UNIQUE`);
+      columnDefinitions.push(`created_at DATETIME DEFAULT CURRENT_TIMESTAMP`);
+      columnDefinitions.push(`created_by INTEGER`);
+
+      // Loop schema
+      for (const [index, field] of uiSchemaInfo.entries()) {
+        const colName = generateColumnName(field.label);
+        const colType = field.type === "number" ? "INTEGER" : "TEXT";
+
+        tx.insert(schemaConfig).values({
+          jenisId: newJenisId,
+          namaKolom: colName,
+          labelKolom: field.label,
+          tipeData: colType,
+          isRequired: field.required || false,
+          isVisibleList: true,
+          urutan: index + 1,
+        }).run();
+
+        columnDefinitions.push(`${colName} ${colType}`);
+      }
+
+      // CREATE TABLE
+      const createTableQuery =
+        `CREATE TABLE ${namaTabel} (${columnDefinitions.join(", ")})`;
+
+      tx.run(sql.raw(createTableQuery));
+
+      // INDEX
+      tx.run(
+        sql.raw(`CREATE INDEX idx_${namaTabel}_kode ON ${namaTabel}(kode_unik)`)
+      );
+    });
 
     revalidatePath("/arsip/jenis");
-    revalidatePath("/arsip/jenis/form");
-    revalidatePath("/arsip");
 
-    return { success: true, message: "Berhasil menyimpan jenis arsip" };
-  } catch (error) {
+    return {
+      success: true,
+      message: "Jenis arsip dan tabel database berhasil dibuat.",
+    };
+
+  } catch (error: any) {
     console.error("Gagal menyimpan jenis arsip:", error);
-    // Cek error duplicate entry untuk kode
-    if (error instanceof Error && error.message.includes("UNIQUE")) {
+
+    if (error.message?.includes("UNIQUE")) {
       return {
         success: false,
-        message: "Nama jenis arsip sudah ada (Kode duplikat).",
+        message: "Nama jenis / prefix sudah digunakan.",
       };
     }
+
     return {
       success: false,
-      message: "Terjadi kesalahan saat menyimpan data.",
+      message: "Terjadi kesalahan sistem: " + error.message,
     };
   }
 }
 
+/* =========================
+   DELETE
+========================= */
+
 export async function deleteJenisArsip(id: number) {
   try {
-    await db.delete(arsip).where(eq(arsip.jenisArsipId, id));
-    // Hard Delete
-    await db.delete(jenisArsip).where(eq(jenisArsip.id, id));
+    const jenis = await db.query.jenisArsip.findFirst({
+      where: eq(jenisArsip.id, id),
+      columns: { namaTabel: true }
+    });
+
+    if (!jenis) {
+      return { success: false, message: "Data tidak ditemukan" };
+    }
+
+    db.transaction((tx) => {
+
+      tx.delete(schemaConfig)
+        .where(eq(schemaConfig.jenisId, id))
+        .run();
+
+      tx.delete(jenisArsip)
+        .where(eq(jenisArsip.id, id))
+        .run();
+
+      tx.run(sql.raw(`DROP TABLE IF EXISTS ${jenis.namaTabel}`));
+    });
 
     revalidatePath("/arsip/jenis");
-    revalidatePath("/arsip");
-    return { success: true };
+
+    return {
+      success: true,
+      message: "Jenis arsip dan data terkait berhasil dihapus.",
+    };
+
   } catch (error) {
     console.error("Gagal menghapus jenis arsip:", error);
-    return { success: false };
+
+    return {
+      success: false,
+      message: "Gagal menghapus data.",
+    };
   }
 }

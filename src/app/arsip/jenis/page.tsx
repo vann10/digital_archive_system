@@ -5,11 +5,9 @@ import {
   FolderOpen,
   Pencil,
   LayoutTemplate,
-  Database,
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Badge } from "../../../components/ui/badge";
-// Import komponen delete yang baru dibuat
 import { DeleteJenisButton } from "../../../components/arsip/delete-button";
 import { SearchJenis } from "@/src/components/arsip/search-jenis";
 
@@ -75,14 +73,14 @@ export default async function JenisArsipPage({ searchParams }: PageProps) {
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 leading-tight">
-                    {item.nama}
+                    {item.namaJenis}
                   </h3>
                   <div className="flex items-center gap-2 mt-1">
                     <Badge
                       variant="secondary"
                       className="text-[10px] bg-slate-100 text-slate-600 px-1.5 h-5 font-normal"
                     >
-                      {item.arsipCount} Data
+                      {item.jumlahData} Data
                     </Badge>
                   </div>
                 </div>

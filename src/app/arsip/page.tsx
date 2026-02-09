@@ -26,10 +26,8 @@ import {
 import { redirect } from "next/navigation";
 import { ArsipTable } from "../../components/arsip/arsip-table";
 
-// Konstanta pagination
 const ITEMS_PER_PAGE = 10;
 
-// Generator Tahun untuk Filter
 const currentYear = new Date().getFullYear();
 const filterYears = Array.from({ length: 12 }, (_, i) => currentYear + 1 - i);
 
@@ -48,47 +46,67 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
   const params = await searchParams;
   const page = Number(params?.page) || 1;
   const search = params?.q || "";
-  const jenisId = params?.jenis || "";
   const tahun = params?.tahun || "";
   const sortBy = params?.sortBy || "";
   const sortDir = (params?.sortDir as "asc" | "desc") || "asc";
 
-  // Panggil getArsipList dengan parameter sorting
+  // 1. AMBIL OPTIONS TERLEBIH DAHULU
+  const jenisOptions = await getJenisArsipOptions();
+
+  // 2. LOGIKA DEFAULT JENIS ID - PERBAIKAN UTAMA
+  let jenisId = params?.jenis || "";
+  
+  // Jika tidak ada jenis dipilih atau 'all', dan ada jenis tersedia, pilih yang pertama
+  if ((!jenisId || jenisId === "all") && jenisOptions.length > 0) {
+    jenisId = jenisOptions[0].id.toString();
+  }
+
+  // 3. PANGGIL DATA DENGAN SEMUA PARAMETER
   const { data, meta, dynamicSchema } = await getArsipList(
     page,
-    search,
     jenisId,
+    search,
     tahun,
     sortBy,
     sortDir
   );
-  const jenisOptions = await getJenisArsipOptions();
 
-  // Logika filter aktif
   const isJenisSelected = !!(jenisId && jenisId !== "all");
 
   async function handleSearch(formData: FormData) {
     "use server";
-    const q = formData.get("q");
-    const jenis = formData.get("jenis");
-    const thn = formData.get("tahun");
+    const q = formData.get("q") as string;
+    const jenis = formData.get("jenis") as string;
+    const thn = formData.get("tahun") as string;
 
-    let url = `/arsip?page=1`;
-    if (q) url += `&q=${q}`;
-    if (jenis && jenis !== "all") url += `&jenis=${jenis}`;
-    if (thn && thn !== "all") url += `&tahun=${thn}`;
-    // Pertahankan sorting saat search
-    if (sortBy) url += `&sortBy=${sortBy}`;
-    if (sortDir) url += `&sortDir=${sortDir}`;
+    const params = new URLSearchParams();
+    params.set("page", "1");
+    
+    if (q) params.set("q", q);
+    if (jenis && jenis !== "all") params.set("jenis", jenis);
+    if (thn && thn !== "all") params.set("tahun", thn);
 
-    redirect(url);
+    redirect(`/arsip?${params.toString()}`);
   }
 
-  // Server Action untuk delete yang akan dipassing ke client component
   async function handleDelete(id: number) {
     "use server";
-    await deleteArsip(id);
-    redirect(`/arsip?page=${page}&q=${search}&jenis=${jenisId}&tahun=${tahun}&sortBy=${sortBy}&sortDir=${sortDir}`);
+    if (!jenisId || jenisId === "all") return;
+    
+    await deleteArsip(id, Number(jenisId));
+    
+    // Redirect dengan semua parameter yang ada
+    const params = new URLSearchParams();
+    params.set("page", page.toString());
+    params.set("jenis", jenisId);
+    if (search) params.set("q", search);
+    if (tahun) params.set("tahun", tahun);
+    if (sortBy) {
+      params.set("sortBy", sortBy);
+      params.set("sortDir", sortDir);
+    }
+    
+    redirect(`/arsip?${params.toString()}`);
   }
 
   return (
@@ -162,7 +180,7 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
                         value={j.id.toString()}
                         className="rounded-lg cursor-pointer focus:bg-blue-50 text-slate-600 focus:text-blue-700 py-2.5 mt-1"
                       >
-                        {j.nama}
+                        {j.namaJenis}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -211,7 +229,7 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
                   Cari
                 </Button>
 
-                {(search || jenisId || tahun) && (
+                {(search || (jenisId && jenisId !== jenisOptions[0]?.id.toString()) || tahun) && (
                   <Button
                     asChild
                     variant="ghost"
@@ -258,7 +276,7 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
             >
               {page > 1 ? (
                 <Link
-                  href={`/arsip?page=${page - 1}&q=${search}&jenis=${jenisId}&tahun=${tahun}${sortBy ? `&sortBy=${sortBy}&sortDir=${sortDir}` : ''}`}
+                  href={`/arsip?page=${page - 1}${search ? `&q=${search}` : ''}${jenisId ? `&jenis=${jenisId}` : ''}${tahun ? `&tahun=${tahun}` : ''}${sortBy ? `&sortBy=${sortBy}&sortDir=${sortDir}` : ''}`}
                   className="flex items-center gap-1"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" /> Prev
@@ -279,7 +297,7 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
             >
               {page < meta.totalPages ? (
                 <Link
-                  href={`/arsip?page=${page + 1}&q=${search}&jenis=${jenisId}&tahun=${tahun}${sortBy ? `&sortBy=${sortBy}&sortDir=${sortDir}` : ''}`}
+                  href={`/arsip?page=${page + 1}${search ? `&q=${search}` : ''}${jenisId ? `&jenis=${jenisId}` : ''}${tahun ? `&tahun=${tahun}` : ''}${sortBy ? `&sortBy=${sortBy}&sortDir=${sortDir}` : ''}`}
                   className="flex items-center gap-1"
                 >
                   Next <ChevronRight className="h-3.5 w-3.5" />

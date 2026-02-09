@@ -8,7 +8,6 @@ interface ArsipTerbaru {
   id: number;
   kode: string;
   jenis: string;
-  tahun: number;
   tanggal: string;
 }
 
@@ -47,9 +46,7 @@ export function ArsipTerbaruTable({ data }: ArsipTerbaruTableProps) {
 
                 {/* Tahun & Tanggal */}
                 <div className="text-right hidden sm:block">
-                  <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 mb-1">
-                    {item.tahun}
-                  </div>
+
                   <div className="flex items-center justify-end text-xs text-slate-400 mt-1">
                     <Clock className="w-3 h-3 mr-1" />
                     {item.tanggal}

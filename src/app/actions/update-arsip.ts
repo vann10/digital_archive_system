@@ -1,34 +1,64 @@
-'use server'
+'use server';
 
 import { db } from '../../db';
-import { arsip } from '../../db/schema';
-import { eq } from 'drizzle-orm';
+import { jenisArsip } from '../../db/schema';
+import { eq, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 
-// PERBAIKAN: Ubah parameter menjadi satu objek payload
 export async function updateArsip(payload: any) {
   try {
-    // Destructure data dari payload tunggal
-    // Pastikan struktur payload di komponen mengirim 'dataCustom' yang sudah terpisah
-    const { id, judul, nomorArsip, tahun, status, dataCustom } = payload;
+    const { id, jenisId, values } = payload;
 
-    // Validasi
-    if (!id) return { success: false, message: "ID Arsip tidak ditemukan" };
-    if (!judul) return { success: false, message: "Judul tidak boleh kosong" };
+    if (!id || !jenisId) {
+      return { success: false, message: "ID atau Jenis tidak valid" };
+    }
 
-    await db.update(arsip)
-      .set({
-        judul,
-        nomorArsip,
-        tahun: parseInt(tahun),
-        status,
-        dataCustom: dataCustom, 
-        updatedAt: new Date().toISOString().replace('T', ' ').split('.')[0] 
-      })
-      .where(eq(arsip.id, id));
+    // 1. Ambil metadata jenis
+    const jenis = await db.query.jenisArsip.findFirst({
+      where: eq(jenisArsip.id, jenisId),
+    });
+
+    if (!jenis) {
+      return { success: false, message: "Jenis arsip tidak ditemukan" };
+    }
+
+    const tableName = jenis.namaTabel;
+
+    // validasi nama tabel
+    if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+      return { success: false, message: "Nama tabel tidak valid" };
+    }
+
+    // 2. Build dynamic SET clause
+    const columns = Object.keys(values);
+    if (columns.length === 0) {
+      return { success: false, message: "Tidak ada data yang diubah" };
+    }
+
+    const setClause = columns.map((col) => {
+      const value = values[col];
+      if (typeof value === "string") {
+        return `${col}='${value.replace(/'/g, "''")}'`;
+      }
+      if (value === null || value === undefined) {
+        return `${col}=NULL`;
+      }
+      return `${col}=${value}`;
+    }).join(",");
+
+    // 3. Execute update
+    await db.run(
+      sql.raw(`
+        UPDATE ${tableName}
+        SET ${setClause}
+        WHERE id = ${id}
+      `)
+    );
 
     revalidatePath('/arsip');
+
     return { success: true, message: "Arsip berhasil diperbarui" };
+
   } catch (error) {
     console.error("Gagal update arsip:", error);
     return { success: false, message: "Terjadi kesalahan saat menyimpan perubahan" };

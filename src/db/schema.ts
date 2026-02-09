@@ -1,5 +1,9 @@
+// components/db/schema.ts
+// 
+
+import { db } from "../db";
 import { sqliteTable, text, integer, blob } from 'drizzle-orm/sqlite-core';
-import { sql } from 'drizzle-orm';
+import { sql, eq, asc } from 'drizzle-orm';
 
 // --------------------------------------------------------------------------
 // 1. TABEL USER
@@ -18,30 +22,33 @@ export const users = sqliteTable('users', {
 // --------------------------------------------------------------------------
 export const jenisArsip = sqliteTable('jenis_arsip', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  nama: text('nama').notNull(),
-  kode: text('kode').notNull().unique(),
-  deskripsi: text('deskripsi'),
-  schemaConfig: text('schema_config', { mode: 'json' }).$type<any[]>().default([]),
-  isActive: integer('is_active', { mode: 'boolean' }).default(true),
+  namaJenis: text('nama_jenis').notNull(),
+  namaTabel: text('nama_tabel').notNull().unique(),
+  prefixKode: text('prefix_kode').notNull(),
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+  deskripsi: text('deskripsi').default("Tidak ada deskripsi.")
 });
 
 // --------------------------------------------------------------------------
-// 3. TABEL ARSIP UTAMA
+// 3. TABEL SCHEMA CONFIG
 // --------------------------------------------------------------------------
-export const arsip = sqliteTable('arsip', {
+export const schemaConfig = sqliteTable('schema_config', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  jenisArsipId: integer('jenis_arsip_id').references(() => jenisArsip.id).notNull(),
-  
-  judul: text('judul').notNull(),
-  tahun: integer('tahun').notNull(),
-  nomorArsip: text('nomor_arsip'),
-  dataCustom: text('data_custom', { mode: 'json' }).$type<Record<string, any>>().default({}),
-  fileUrl: text('file_url'),
-  status: text('status'),
-  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
-  createdBy: integer('created_by').references(() => users.id),
-  updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+  jenisId: integer('jenis_id')
+    .references(() => jenisArsip.id)
+    .notNull(),
+
+  namaKolom: text('nama_kolom').notNull(),
+  labelKolom: text('label_kolom').notNull(),
+  tipeData: text('tipe_data').default('TEXT'),
+
+  isRequired: integer('is_required', { mode: 'boolean' }).default(true),
+  isVisibleList: integer('is_visible_list', { mode: 'boolean' }).default(true),
+
+  defaultValue: text('default_value'),
+  urutan: integer('urutan'),
 });
+
 
 // --------------------------------------------------------------------------
 // 4. TABEL LOG
@@ -55,3 +62,13 @@ export const logAktivitas = sqliteTable('log_aktivitas', {
   detail: text('detail'),
   waktu: text('waktu').default(sql`CURRENT_TIMESTAMP`),
 });
+
+export async function getSchemaByJenis(jenisId: number) {
+  const result = await db
+    .select()
+    .from(schemaConfig)
+    .where(eq(schemaConfig.jenisId, jenisId))
+    .orderBy(asc(schemaConfig.urutan));
+
+  return result;
+}

@@ -1,180 +1,183 @@
 "use server";
 
 import { db } from "../../db";
-import { arsip, jenisArsip } from "../../db/schema";
-import { eq, desc, asc, sql, and } from "drizzle-orm";
+import { jenisArsip } from "../../db/schema";
+import { eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 const ITEMS_PER_PAGE = 10;
 
+// ------------------------------------------------------
+// GET LIST ARSIP
+// ------------------------------------------------------
 export async function getArsipList(
   page: number = 1,
-  search: string = "",
   jenisId: string = "",
+  search: string = "",
   tahun: string = "",
   sortBy: string = "",
   sortDir: "asc" | "desc" = "asc"
 ) {
-  const offset = (page - 1) * ITEMS_PER_PAGE;
-  let baseConditions = [];
-
-  if (search) {
-    baseConditions.push(
-      sql`(${arsip.judul} LIKE ${`%${search}%`} OR ${arsip.nomorArsip} LIKE ${`%${search}%`})`
-    );
-  }
-  if (jenisId && jenisId !== "all") {
-    baseConditions.push(eq(arsip.jenisArsipId, parseInt(jenisId)));
-  }
-  if (tahun && tahun !== "all") {
-    baseConditions.push(eq(arsip.tahun, parseInt(tahun)));
-  }
-
-  const whereCondition =
-    baseConditions.length > 0 ? and(...baseConditions) : undefined;
-
-  // --- LOGIKA SORTING DINAMIS ---
-  let orderByClause = [];
-
-  if (sortBy) {
-    // Jika ada sorting yang dipilih user
-    switch (sortBy) {
-      case "judul":
-        orderByClause = sortDir === "asc" 
-          ? [asc(arsip.judul)] 
-          : [desc(arsip.judul)];
-        break;
-      
-      case "nomor":
-        orderByClause = sortDir === "asc" 
-          ? [asc(arsip.nomorArsip)] 
-          : [desc(arsip.nomorArsip)];
-        break;
-      
-      case "tahun":
-        orderByClause = sortDir === "asc" 
-          ? [asc(arsip.tahun)] 
-          : [desc(arsip.tahun)];
-        break;
-      
-      case "jenis":
-        orderByClause = sortDir === "asc" 
-          ? [asc(jenisArsip.nama)] 
-          : [desc(jenisArsip.nama)];
-        break;
-      
-      case "status":
-        orderByClause = sortDir === "asc" 
-          ? [asc(arsip.status), asc(arsip.id)] 
-          : [desc(arsip.status), desc(arsip.id)];
-        break;
-      
-      default:
-        // Untuk kolom dinamis, kita tidak bisa sort di database
-        // Akan di-handle di aplikasi setelah query
-        orderByClause = [desc(arsip.id)];
-        break;
-    }
-  } else {
-    // Default sorting: LIFO (Last In First Out) - Terbaru dulu
-    orderByClause = [desc(arsip.id)];
-  }
-
-  const data = await db
-    .select({
-      id: arsip.id,
-      judul: arsip.judul,
-      nomorArsip: arsip.nomorArsip,
-      tahun: arsip.tahun,
-      dataCustom: arsip.dataCustom,
-      jenisNama: jenisArsip.nama,
-      jenisKode: jenisArsip.kode,
-      schemaConfig: jenisArsip.schemaConfig,
-      createdAt: arsip.createdAt,
-      status: arsip.status,
-    })
-    .from(arsip)
-    .leftJoin(jenisArsip, eq(arsip.jenisArsipId, jenisArsip.id))
-    .where(whereCondition)
-    .limit(ITEMS_PER_PAGE)
-    .offset(offset)
-    .orderBy(...orderByClause);
-
-  // --- SORTING KOLOM DINAMIS (jika ada) ---
-  // Kolom dinamis ada di field JSON dataCustom, tidak bisa di-sort di database
-  // Jadi kita sort di aplikasi setelah query
-  let sortedData = [...data];
-  
-  if (sortBy && !["judul", "nomor", "tahun", "jenis", "tanggal"].includes(sortBy)) {
-    sortedData.sort((a, b) => {
-      try {
-        const aCustom = typeof a.dataCustom === "string" 
-          ? JSON.parse(a.dataCustom) 
-          : a.dataCustom || {};
-        const bCustom = typeof b.dataCustom === "string" 
-          ? JSON.parse(b.dataCustom) 
-          : b.dataCustom || {};
-        
-        const aValue = (aCustom[sortBy] || "").toString().toLowerCase();
-        const bValue = (bCustom[sortBy] || "").toString().toLowerCase();
-        
-        const comparison = aValue.localeCompare(bValue, 'id', { numeric: true });
-        return sortDir === "asc" ? comparison : -comparison;
-      } catch (e) {
-        console.error("Error sorting dynamic column:", e);
-        return 0;
-      }
-    });
-  }
-
-  const totalResult = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(arsip)
-    .where(whereCondition);
-
-  const totalItems = totalResult[0]?.count || 0;
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-
-  // Dynamic Schema
-  let dynamicSchema = [];
-  if (jenisId && jenisId !== "all") {
-    const jenisData = await db
-      .select()
-      .from(jenisArsip)
-      .where(eq(jenisArsip.id, parseInt(jenisId)));
-    if (jenisData.length > 0 && jenisData[0].schemaConfig) {
-      try {
-        dynamicSchema =
-          typeof jenisData[0].schemaConfig === "string"
-            ? JSON.parse(jenisData[0].schemaConfig)
-            : jenisData[0].schemaConfig;
-      } catch (e) {
-        dynamicSchema = [];
-      }
-    }
-  }
-
-  return {
-    data: sortedData,
-    meta: { totalItems, totalPages, currentPage: page },
-    dynamicSchema,
-  };
-}
-
-export async function getJenisArsipOptions() {
-  return await db
-    .select({ id: jenisArsip.id, nama: jenisArsip.nama })
-    .from(jenisArsip)
-    .orderBy(asc(jenisArsip.nama));
-}
-
-export async function deleteArsip(id: number) {
   try {
-    await db.delete(arsip).where(eq(arsip.id, id));
+    if (!jenisId || jenisId === "all") {
+      return {
+        data: [],
+        meta: { totalItems: 0, totalPages: 0, currentPage: 1 },
+        dynamicSchema: [],
+      };
+    }
+
+    const offset = (page - 1) * ITEMS_PER_PAGE;
+
+    // 1. Ambil metadata jenis
+    const jenis = await db.query.jenisArsip.findFirst({
+      where: eq(jenisArsip.id, parseInt(jenisId)),
+    });
+
+    if (!jenis) {
+      return {
+        data: [],
+        meta: { totalItems: 0, totalPages: 0, currentPage: 1 },
+        dynamicSchema: [],
+      };
+    }
+
+    const tableName = jenis.namaTabel;
+
+    // validasi nama tabel
+    if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+      throw new Error("Nama tabel tidak valid");
+    }
+
+    // 2. Ambil schema_config
+    const schema: any[] = await db.all(
+      sql`
+        SELECT *
+        FROM schema_config
+        WHERE jenis_id = ${parseInt(jenisId)}
+        ORDER BY urutan
+      `
+    );
+
+    // Kolom yang tampil di tabel
+    const visibleColumns = schema.filter((c) => c.is_visible_list);
+
+    // 3. Build WHERE clause untuk filter
+    let whereClause = "WHERE 1=1";
+    
+    // Filter pencarian
+    if (search) {
+      // Cari di semua kolom visible
+      const searchConditions = visibleColumns
+        .map((col) => `${col.nama_kolom} LIKE '%${search}%'`)
+        .join(" OR ");
+      whereClause += ` AND (${searchConditions})`;
+    }
+
+    // Filter tahun (asumsi ada kolom tanggal)
+    if (tahun) {
+      const dateColumn = visibleColumns.find(
+        (c) => c.tipe_data === "DATE" || c.nama_kolom.includes("tanggal")
+      );
+      if (dateColumn) {
+        whereClause += ` AND strftime('%Y', ${dateColumn.nama_kolom}) = '${tahun}'`;
+      }
+    }
+
+    // 4. Build ORDER BY clause
+    let orderClause = "ORDER BY nomor_urut_internal DESC";
+    if (sortBy && visibleColumns.find((c) => c.nama_kolom === sortBy)) {
+      orderClause = `ORDER BY ${sortBy} ${sortDir.toUpperCase()}`;
+    }
+
+    // 5. Ambil data arsip dengan filter
+    const data = await db.all(
+      sql.raw(`
+        SELECT *
+        FROM ${tableName}
+        ${whereClause}
+        ${orderClause}
+        LIMIT ${ITEMS_PER_PAGE}
+        OFFSET ${offset}
+      `)
+    );
+
+    // 6. Hitung total data dengan filter yang sama
+    const totalResult: any = await db.get(
+      sql.raw(`
+        SELECT COUNT(*) as count 
+        FROM ${tableName}
+        ${whereClause}
+      `)
+    );
+
+    const totalItems = totalResult?.count || 0;
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+
+    return {
+      data,
+      meta: {
+        totalItems,
+        totalPages,
+        currentPage: page,
+      },
+      dynamicSchema: visibleColumns,
+    };
+  } catch (error) {
+    console.error("Error getArsipList:", error);
+    return {
+      data: [],
+      meta: { totalItems: 0, totalPages: 0, currentPage: 1 },
+      dynamicSchema: [],
+    };
+  }
+}
+
+// ------------------------------------------------------
+// DELETE ARSIP
+// ------------------------------------------------------
+export async function deleteArsip(id: number, jenisId: number) {
+  try {
+    const jenis = await db.query.jenisArsip.findFirst({
+      where: eq(jenisArsip.id, jenisId),
+    });
+
+    if (!jenis) {
+      return { success: false };
+    }
+
+    const tableName = jenis.namaTabel;
+
+    if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+      throw new Error("Nama tabel tidak valid");
+    }
+
+    await db.run(
+      sql.raw(`DELETE FROM ${tableName} WHERE id = ${id}`)
+    );
+
     revalidatePath("/arsip");
+
     return { success: true };
   } catch (error) {
-    console.error("Gagal menghapus arsip:", error);
-    return { success: false, message: "Gagal menghapus data" };
+    console.error("Error deleteArsip:", error);
+    return { success: false };
+  }
+}
+
+// ------------------------------------------------------
+// GET JENIS ARSIP OPTIONS (Untuk Dropdown)
+// ------------------------------------------------------
+export async function getJenisArsipOptions() {
+  try {
+    const result = await db.select({
+      id: jenisArsip.id,
+      namaJenis: jenisArsip.namaJenis,
+    }).from(jenisArsip);
+
+    return result;
+  } catch (error) {
+    console.error("Error getJenisArsipOptions:", error);
+    return [];
   }
 }

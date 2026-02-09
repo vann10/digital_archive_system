@@ -9,14 +9,35 @@ import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
 import { Textarea } from "../../../../components/ui/textarea";
 import { Card, CardContent } from "../../../../components/ui/card";
-import { SchemaBuilder, SchemaField } from "../../../../components/arsip/schema-builder";
+// Pastikan path import ini sesuai dengan struktur folder Anda
+import { SchemaBuilder, SchemaField } from "../../../../components/arsip/schema-builder"; 
 import { getJenisArsipDetail, saveJenisArsip } from "../../../../app/actions/jenis-arsip";
 
-// Definisi Kolom Sistem (Data Utama)
+// --- DEFINISI KOLOM STANDAR (SESUAI DATABASE) ---
 const SYSTEM_FIELDS: SchemaField[] = [
-  { id: "nomorArsip", label: "Nomor Arsip", type: "text", required: true, isSystem: true },
-  { id: "judul", label: "Judul / Perihal", type: "text", required: true, isSystem: true },
-  { id: "tahun", label: "Tahun", type: "number", required: true, isSystem: true },
+  // 1. Identitas Arsip Utama
+  { id: "nomorArsip", label: "Nomor Arsip", type: "text", required: false, isSystem: false },
+  { id: "kodeKlasifikasi", label: "Kode Klasifikasi", type: "text", required: false, isSystem: false },
+  { id: "uraian", label: "Uraian / Ringkasan", type: "text", required: false, isSystem: false },
+  { id: "kurunWaktu", label: "Kurun Waktu (Tahun)", type: "number", required: false, isSystem: false },
+  { id: "unitPengolah", label: "Unit Pengolah", type: "text", required: false, isSystem: false },
+  
+  // 2. Fisik & Media
+  { id: "tingkatPerkembangan", label: "Tingkat Perkembangan", type: "select", required: false, isSystem: false, options: ["Asli", "Salinan", "Tembusan"] },
+  { id: "mediaSimpan", label: "Media Simpan", type: "text", required: false, isSystem: false },
+  { id: "kondisiFisik", label: "Kondisi Fisik", type: "text", required: false, isSystem: false },
+  { id: "jumlahBerkas", label: "Jumlah Berkas", type: "number", required: false, isSystem: false },
+
+  // 3. Lokasi Simpan (Depo)
+  { id: "lokasiRuang", label: "Lokasi Ruang", type: "text", required: false, isSystem: false },
+  { id: "lokasiRak", label: "Lokasi Rak", type: "text", required: false, isSystem: false },
+  { id: "lokasiBaris", label: "Lokasi Baris", type: "text", required: false, isSystem: false },
+  { id: "lokasiBox", label: "Lokasi Box", type: "text", required: false, isSystem: false },
+  { id: "lokasiFolder", label: "Lokasi Folder", type: "text", required: false, isSystem: false },
+
+  // 4. Manajemen Retensi
+  { id: "jra", label: "JRA (Jadwal Retensi)", type: "text", required: false, isSystem: false },
+  { id: "keterangan", label: "Keterangan Tambahan", type: "text", required: false, isSystem: false },
 ];
 
 export default function JenisArsipForm() {
@@ -30,32 +51,41 @@ export default function JenisArsipForm() {
   
   const [nama, setNama] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
-  const [schemaFields, setSchemaFields] = useState<SchemaField[]>([]);
+  // Inisialisasi awal langsung menggunakan SYSTEM_FIELDS lengkap
+  const [schemaFields, setSchemaFields] = useState<SchemaField[]>(SYSTEM_FIELDS);
 
   useEffect(() => {
     if (isEditMode) {
       getJenisArsipDetail(Number(id)).then((res) => {
         if (res.jenis) {
-          setNama(res.jenis.nama);
-          setDeskripsi(res.jenis.deskripsi ?? "");
+          setNama(res.jenis.namaJenis); // Sesuaikan dengan properti DB (namaJenis)
           
-          // --- LOGIC PENGGABUNGAN DATA ---
-          const savedSchema = (res.schema || []) as SchemaField[];
+          // --- LOGIC MERGE DATA (Agar kolom sistem baru tetap muncul di data lama) ---
+          const savedSchema = (res.schema || []) as any[]; // Data dari DB (schema_config)
           
-          // Cek apakah data lama sudah punya system fields (judul/tahun/dll) di dalam JSON-nya?
-          // Jika belum (legacy data), kita gabungkan di awal.
-          const hasSystemFields = savedSchema.some(f => f.isSystem);
+          // Mapping data DB (snake_case) ke format UI (camelCase) jika perlu, 
+          // atau gunakan savedSchema langsung jika strukturnya sudah sesuai SchemaField.
+          // Disini kita asumsikan savedSchema berisi custom fields user saja.
           
-          if (!hasSystemFields) {
-            setSchemaFields([...SYSTEM_FIELDS, ...savedSchema]);
-          } else {
-            setSchemaFields(savedSchema);
-          }
+          // Filter hanya custom field dari database (yang bukan system field)
+          // Asumsi: Kita mendeteksi custom field jika ID-nya tidak ada di SYSTEM_FIELDS
+          const customFields = savedSchema.filter(
+            (saved) => !SYSTEM_FIELDS.some((sys) => sys.id === saved.namaKolom || sys.label === saved.labelKolom)
+          ).map(f => ({
+            id: f.namaKolom,
+            label: f.labelKolom,
+            type: f.tipeData?.toLowerCase() || 'text',
+            required: !!f.isRequired,
+            isSystem: false
+          }));
+
+          // Gabungkan: System Fields (Selalu di atas) + Custom Fields (Dari DB)
+          setSchemaFields([...SYSTEM_FIELDS, ...customFields]);
         }
         setLoading(false);
       });
     } else {
-      // Jika mode Buat Baru, langsung pasang System Fields default
+      // Jika mode baru, reset ke default system fields
       setSchemaFields([...SYSTEM_FIELDS]);
       setLoading(false);
     }
@@ -67,14 +97,21 @@ export default function JenisArsipForm() {
 
     const formData = new FormData();
     if (id) formData.append("id", id);
-    formData.append("nama", nama);
-    formData.append("deskripsi", deskripsi);
-    // Simpan semua fields termasuk urutan System Fields yang baru
+    // Sesuaikan nama field dengan yang diterima Server Action (nama_jenis / prefix_kode)
+    formData.append("nama_jenis", nama); 
+    formData.append("prefix_kode", nama.substring(0, 3).toUpperCase()); // Generate prefix otomatis sederhana
+    formData.append("deskripsi", deskripsi); // Jika server action menerima deskripsi
+    
+    // Simpan JSON schema lengkap
     formData.append("schema_json", JSON.stringify(schemaFields));
 
     startTransition(async () => {
-      await saveJenisArsip(null, formData);
-      router.push("/arsip/jenis");
+      const result = await saveJenisArsip(null, formData);
+      if (result.success) {
+         router.push("/arsip/jenis");
+      } else {
+         alert(result.message); // Tampilkan error sederhana
+      }
     });
   };
 
@@ -87,7 +124,7 @@ export default function JenisArsipForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-full space-y-4  pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <form onSubmit={handleSubmit} className="max-w-full space-y-4 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
       {/* PAGE HEADER */}
       <div className="flex items-center gap-4">
@@ -101,7 +138,7 @@ export default function JenisArsipForm() {
             {isEditMode ? "Edit Jenis Arsip" : "Buat Jenis Arsip Baru"}
           </h1>
           <p className="text-sm text-slate-500">
-            Definisikan metadata dan struktur kolom dinamis.
+            Standar kolom telah diterapkan. Anda dapat menambahkan kolom khusus tambahan.
           </p>
         </div>
       </div>
@@ -164,12 +201,15 @@ export default function JenisArsipForm() {
         {/* KOLOM KANAN: SCHEMA BUILDER */}
         <div className="md:col-span-2">
           <Card className="border-slate-200 shadow-sm min-h-[500px]">
-            <CardContent className="p-6">
-               <SchemaBuilder 
+             <CardContent className="p-6">
+                {/* Pastikan component SchemaBuilder Anda menangani properti 'isSystem' 
+                  dengan menonaktifkan tombol delete/edit untuk field tersebut.
+                */}
+                <SchemaBuilder 
                   fields={schemaFields} 
                   onChange={setSchemaFields} 
-               />
-            </CardContent>
+                />
+             </CardContent>
           </Card>
         </div>
       
@@ -177,9 +217,9 @@ export default function JenisArsipForm() {
 
       {/* MOBILE SAVE BUTTON */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-200 z-50">
-         <Button type="submit" className="w-full bg-blue-600" disabled={isSaving}>
+          <Button type="submit" className="w-full bg-blue-600" disabled={isSaving}>
             Simpan Perubahan
-         </Button>
+          </Button>
       </div>
 
     </form>

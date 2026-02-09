@@ -12,21 +12,15 @@ import { Card, CardContent } from '../ui/card';
 
 interface StatsCardsProps {
   totalArsip: number;
-  arsipAktif: number;
   arsipBulanIni: number;
   penggunaAktif: number;
-  growthArsip: number;
-  growthArsipAktif: number;
   growthBulanIni: number;
 }
 
 export function StatsCards({
   totalArsip,
-  arsipAktif,
   arsipBulanIni,
   penggunaAktif,
-  growthArsip,
-  growthArsipAktif,
   growthBulanIni,
 }: StatsCardsProps) {
   return (
@@ -39,10 +33,6 @@ export function StatsCards({
             <h3 className="text-2xl font-bold text-slate-900">
               {totalArsip.toLocaleString('id-ID')}
             </h3>
-            <div className="flex items-center mt-2 text-xs font-medium text-green-600">
-              <ArrowUpRight className="w-3 h-3 mr-1" />
-              +{growthArsip.toFixed(1)}% <span className="text-slate-400 font-normal ml-1">dari bulan lalu</span>
-            </div>
           </div>
           <div className="p-3 bg-blue-50 rounded-lg">
             <FileText className="w-5 h-5 text-blue-600" />
@@ -55,13 +45,6 @@ export function StatsCards({
         <CardContent className="p-6 flex items-start justify-between">
           <div>
             <p className="text-xs font-medium text-slate-500 mb-1">Arsip Aktif</p>
-            <h3 className="text-2xl font-bold text-slate-900">
-              {arsipAktif.toLocaleString('id-ID')}
-            </h3>
-            <div className="flex items-center mt-2 text-xs font-medium text-green-600">
-              <ArrowUpRight className="w-3 h-3 mr-1" />
-              +{growthArsipAktif.toFixed(1)}% <span className="text-slate-400 font-normal ml-1">dari bulan lalu</span>
-            </div>
           </div>
           <div className="p-3 bg-blue-50 rounded-lg">
             <FolderOpen className="w-5 h-5 text-blue-600" />

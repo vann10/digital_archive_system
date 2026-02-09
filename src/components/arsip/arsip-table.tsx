@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Table,
@@ -11,40 +11,67 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { Button } from "../../components/ui/button";
-import { Badge } from "../../components/ui/badge";
 import { Trash2, FileText, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { ArsipDetailDialog } from "../../components/arsip/arsip-detail-dialog";
 
-// Helper formatDate
-const formatDate = (dateValue: any) => {
-  if (!dateValue) return "-";
-  let dateToParse = dateValue;
-  if (typeof dateValue === "string") {
-    dateToParse = dateValue.trim().replace(" ", "T");
+// --- TYPES ---
+interface SchemaColumn {
+  nama_kolom: string;
+  label_kolom: string;
+  tipe_data?: string;
+  width?: number; // Optional hint for default width
+}
+
+interface ArsipTableProps {
+  data: any[];
+  page: number;
+  itemsPerPage: number;
+  // dynamicSchema sekarang menjadi single source of truth untuk kolom
+  dynamicSchema: SchemaColumn[]; 
+  isJenisSelected: boolean;
+  onDelete: (id: number) => Promise<void>;
+  sortConfig?: { key: string; direction: "asc" | "desc" };
+  currentParams?: {
+    page: number;
+    search: string;
+    jenisId: string;
+    tahun: string;
+  };
+}
+
+// --- HELPER: Format Tanggal / Value ---
+const renderCellContent = (value: any, type: string = "TEXT") => {
+  if (value === null || value === undefined) return "-";
+
+  // Cek jika tipe data DATE atau value terlihat seperti tanggal ISO string
+  if (type === "DATE" || (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value))) {
+    const date = new Date(value);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    }
   }
-  const date = new Date(dateToParse);
-  if (isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+
+  return value;
 };
 
-// Component SortButton untuk header table
-const SortButton = ({ 
-  columnKey, 
-  currentSort, 
-  onSort 
-}: { 
-  columnKey: string, 
-  currentSort?: { key: string; direction: "asc" | "desc" },
-  onSort?: (key: string) => void 
+// --- COMPONENT: Sort Button ---
+const SortButton = ({
+  columnKey,
+  currentSort,
+  onSort,
+}: {
+  columnKey: string;
+  currentSort?: { key: string; direction: "asc" | "desc" };
+  onSort?: (key: string) => void;
 }) => {
   const isActive = currentSort?.key === columnKey;
   const direction = isActive ? currentSort?.direction : null;
-  
+
   return (
     <button
       onClick={() => onSort?.(columnKey)}
@@ -52,7 +79,7 @@ const SortButton = ({
         "ml-2 p-1 rounded hover:bg-slate-200 transition-colors inline-flex items-center",
         isActive ? "text-blue-600 bg-blue-50" : "text-slate-400 hover:text-slate-600"
       )}
-      title={`Sort by ${columnKey}`}
+      title={`Urutkan berdasarkan ${columnKey}`}
     >
       {!isActive ? (
         <ArrowUpDown className="w-3.5 h-3.5" />
@@ -64,22 +91,6 @@ const SortButton = ({
     </button>
   );
 };
-
-interface ArsipTableProps {
-  data: any[];
-  page: number;
-  itemsPerPage: number;
-  dynamicSchema: any[];
-  isJenisSelected: boolean;
-  onDelete: (id: number) => Promise<void>;
-  sortConfig?: {key: string, direction: "asc" | "desc"},
-  currentParams?: {
-    page: number;
-    search: string;
-    jenisId: string;
-    tahun: string;
-  }
-}
 
 export function ArsipTable({
   data,
@@ -93,12 +104,7 @@ export function ArsipTable({
 }: ArsipTableProps) {
   const router = useRouter();
 
-  // --- 1. FILTER SCHEMA ---
-  const filteredSchema = dynamicSchema.filter(
-    (col) => !["judul", "nomorArsip", "tahun"].includes(col.id),
-  );
-
-  // --- STATE RESIZING ---
+  // --- 1. STATE RESIZING ---
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
   const [resizing, setResizing] = useState<{
     id: string;
@@ -106,34 +112,41 @@ export function ArsipTable({
     startWidth: number;
   } | null>(null);
 
-  // Inisialisasi lebar default saat filter aktif
+  // --- 2. INITIALIZE WIDTHS (Responsive to Schema Changes) ---
   useEffect(() => {
-    if (isJenisSelected) {
+    if (isJenisSelected && dynamicSchema.length > 0) {
       setColumnWidths((prev) => {
         const next = { ...prev };
+        // Set default widths
         if (!next["no"]) next["no"] = 60;
-        if (!next["judul"]) next["judul"] = 300;
-        if (!next["nomor"]) next["nomor"] = 180;
-        if (!next["status"]) next["status"] = 120;
-        if (!next["tahun"]) next["tahun"] = 80;
-        if (!next["jenis"]) next["jenis"] = 150;
-
-        filteredSchema.forEach((col) => {
-          if (!next[col.id]) next[col.id] = 220;
+        
+        dynamicSchema.forEach((col) => {
+          if (!next[col.nama_kolom]) {
+            // Logika sederhana untuk menentukan lebar default
+            if (col.nama_kolom === "uraian" || col.nama_kolom === "keterangan") {
+              next[col.nama_kolom] = 300;
+            } else if (col.nama_kolom.includes("tanggal") || col.tipe_data === "DATE") {
+              next[col.nama_kolom] = 120;
+            } else if (col.nama_kolom === "jumlah_berkas") {
+              next[col.nama_kolom] = 100;
+            } else {
+              next[col.nama_kolom] = 180;
+            }
+          }
         });
         return next;
       });
     } else {
-      setColumnWidths({});
+      setColumnWidths({}); // Reset jika tidak ada jenis dipilih (tampilan default)
     }
   }, [isJenisSelected, dynamicSchema]);
 
-  // Event listeners untuk resizing
+  // --- 3. RESIZING HANDLERS ---
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!resizing) return;
       const diff = e.clientX - resizing.startX;
-      const newWidth = Math.max(50, resizing.startWidth + diff);
+      const newWidth = Math.max(80, resizing.startWidth + diff); // Min width 80px
       setColumnWidths((prev) => ({ ...prev, [resizing.id]: newWidth }));
     };
 
@@ -161,34 +174,17 @@ export function ArsipTable({
   const startResizing = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!isJenisSelected) return;
+    if (!isJenisSelected) return; // Prevent resizing on default view if needed
 
-    setColumnWidths((prev) => {
-      let currentWidth = prev[id];
-      if (!currentWidth) {
-        if (id === "no") currentWidth = 60;
-        else if (id === "judul") currentWidth = 300;
-        else if (id === "nomor") currentWidth = 180;
-        else if (id === "status") currentWidth = 120;
-        else if (id === "tahun") currentWidth = 80;
-        else if (id === "jenis") currentWidth = 150;
-        else currentWidth = 220;
-      }
-
-      setResizing({ id, startX: e.clientX, startWidth: currentWidth });
-      return prev;
-    });
+    const currentWidth = columnWidths[id] || 150;
+    setResizing({ id, startX: e.clientX, startWidth: currentWidth });
   };
 
   const getWidthStyle = (id: string) => {
     if (!isJenisSelected) return {};
     const width = columnWidths[id];
     if (!width) return {};
-    return {
-      width: `${width}px`,
-      minWidth: `${width}px`,
-      maxWidth: `${width}px`,
-    };
+    return { width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` };
   };
 
   const ResizerHandle = ({ id }: { id: string }) => {
@@ -198,190 +194,83 @@ export function ArsipTable({
         onMouseDown={(e) => startResizing(e, id)}
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          "absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-50",
+          "absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-20",
           "hover:bg-blue-400 transition-colors opacity-0 hover:opacity-100",
-          resizing?.id === id && "bg-blue-600 opacity-100 w-[2px]",
+          resizing?.id === id && "bg-blue-600 opacity-100 w-[2px]"
         )}
         title="Geser lebar kolom"
       />
     );
   };
 
-  // --- HANDLER SORTING dengan logika 3 klik ---
+  // --- 4. SORTING LOGIC ---
   const handleSort = (columnKey: string) => {
     const currentKey = sortConfig?.key;
     const currentDir = sortConfig?.direction;
-    
     let newDirection: "asc" | "desc" | null = "asc";
-    
-    // Logika 3 klik: asc -> desc -> default (null)
+
     if (currentKey === columnKey) {
-      if (currentDir === "asc") {
-        newDirection = "desc";
-      } else if (currentDir === "desc") {
-        newDirection = null; // Kembali ke default
-      }
+      if (currentDir === "asc") newDirection = "desc";
+      else if (currentDir === "desc") newDirection = null;
     }
 
-    // Build URL dengan parameter sorting
     const params = new URLSearchParams();
-    params.set("page", "1"); // Reset ke page 1 saat sorting
+    params.set("page", "1");
     if (currentParams?.search) params.set("q", currentParams.search);
     if (currentParams?.jenisId) params.set("jenis", currentParams.jenisId);
     if (currentParams?.tahun) params.set("tahun", currentParams.tahun);
-    
-    // Hanya tambahkan sortBy dan sortDir jika tidak null (tidak default)
+
     if (newDirection !== null) {
       params.set("sortBy", columnKey);
       params.set("sortDir", newDirection);
     }
-
     router.push(`/arsip?${params.toString()}`);
   };
 
-  // --- LOGIKA GROUPING DINAMIS ---
-  const dynamicGroups = filteredSchema.reduce(
-    (acc: { name: string; count: number }[], col) => {
-      const groupName = col.group || col.kelompok || "Data Spesifik";
-      const lastGroup = acc[acc.length - 1];
-
-      if (lastGroup && lastGroup.name === groupName) {
-        lastGroup.count += 1;
-      } else {
-        acc.push({ name: groupName, count: 1 });
-      }
-      return acc;
-    },
-    [],
-  );
-
   return (
-    <div className="flex-1 overflow-auto relative">
+    <div className="flex-1 overflow-auto relative border rounded-md shadow-sm bg-white">
       <Table
         className={cn(
-          "w-full",
+          "w-full text-sm",
           isJenisSelected
             ? "table-fixed w-max min-w-full border-separate border-spacing-0"
-            : "min-w-full",
+            : "min-w-full"
         )}
       >
         <TableHeader>
-          {/* --- HEADER KOLOM --- */}
-          <TableRow
-            className={cn(
-              "border-b border-slate-200 hover:bg-slate-50",
-              isJenisSelected && "sticky",
-            )}
-          >
-            {/* No */}
+          <TableRow className="bg-slate-50 hover:bg-slate-50 border-b border-slate-200">
+            
+            {/* --- KOLOM NO (FIXED) --- */}
             <TableHead
-              className="font-bold text-slate-700 h-11 bg-slate-50 sticky left-0 z-30 text-center border-r border-slate-100"
+              className="h-10 font-bold text-slate-700 bg-slate-50 sticky left-0 z-30 text-center border-r border-slate-200"
               style={getWidthStyle("no")}
             >
               No <ResizerHandle id="no" />
             </TableHead>
 
-            {/* Judul Arsip - dengan sorting */}
-            <TableHead
-              className="font-bold text-slate-700 h-11 bg-slate-50 relative border-r border-slate-100"
-              style={getWidthStyle("judul")}
-            >
-              <div className="flex items-center justify-between">
-                <span>Judul Arsip</span>
-                <SortButton 
-                  columnKey="judul" 
-                  currentSort={sortConfig} 
-                  onSort={handleSort}
-                />
-              </div>
-              <ResizerHandle id="judul" />
-            </TableHead>
-
-            {/* Nomor Arsip - dengan sorting */}
-            <TableHead
-              className="font-bold text-slate-700 h-11 bg-slate-50 relative border-r border-slate-100"
-              style={getWidthStyle("nomor")}
-            >
-              <div className="flex items-center justify-between">
-                <span>Nomor Arsip</span>
-                <SortButton 
-                  columnKey="nomor" 
-                  currentSort={sortConfig} 
-                  onSort={handleSort}
-                />
-              </div>
-              <ResizerHandle id="nomor" />
-            </TableHead>
-
-            {/* Tahun - dengan sorting */}
-            <TableHead
-              className="font-bold text-slate-700 h-11 bg-slate-50 text-center relative border-r border-slate-100"
-              style={getWidthStyle("tahun")}
-            >
-              <div className="flex items-center justify-center">
-                <span>Tahun</span>
-                <SortButton 
-                  columnKey="tahun" 
-                  currentSort={sortConfig} 
-                  onSort={handleSort}
-                />
-              </div>
-              <ResizerHandle id="tahun" />
-            </TableHead>
-
-            {/* Jenis - dengan sorting */}
-            <TableHead
-              className="font-bold text-slate-700 h-11 bg-slate-50 relative border-r border-slate-100"
-              style={getWidthStyle("jenis")}
-            >
-              <div className="flex items-center justify-between">
-                <span>Jenis</span>
-                <SortButton 
-                  columnKey="jenis" 
-                  currentSort={sortConfig} 
-                  onSort={handleSort}
-                />
-              </div>
-              <ResizerHandle id="jenis" />
-            </TableHead>
-
-            {/* Status - dengan sorting */}
-            <TableHead
-              className="font-bold text-slate-700 h-11 bg-slate-50 relative border-r border-slate-100"
-              style={getWidthStyle("status")}
-            >
-              <div className="flex items-center justify-between">
-                <span>Status</span>
-                <SortButton 
-                  columnKey="status" 
-                  currentSort={sortConfig} 
-                  onSort={handleSort}
-                />
-              </div>
-              <ResizerHandle id="status" />
-            </TableHead>
-
-            {/* KOLOM DINAMIS - dengan sorting */}
-            {filteredSchema.map((col: any) => (
+            {/* --- KOLOM DINAMIS (BERDASARKAN SCHEMA) --- */}
+            {dynamicSchema.map((col) => (
               <TableHead
-                key={col.id}
-                className="font-bold text-blue-700 bg-blue-50/80 h-11 whitespace-nowrap border-r border-blue-100 relative"
-                style={getWidthStyle(col.id)}
+                key={col.nama_kolom}
+                className="h-10 font-bold text-slate-700 bg-slate-50 relative border-r border-slate-200 whitespace-nowrap"
+                style={getWidthStyle(col.nama_kolom)}
               >
-                <div className="flex items-center justify-between">
-                  <span>{col.label}</span>
-                  <SortButton 
-                    columnKey={col.id} 
-                    currentSort={sortConfig} 
+                <div className="flex items-center justify-between px-1">
+                  <span className="truncate" title={col.label_kolom}>
+                    {col.label_kolom}
+                  </span>
+                  <SortButton
+                    columnKey={col.nama_kolom}
+                    currentSort={sortConfig}
                     onSort={handleSort}
                   />
                 </div>
-                <ResizerHandle id={col.id} />
+                <ResizerHandle id={col.nama_kolom} />
               </TableHead>
             ))}
 
-            {/* AKSI */}
-            <TableHead className="text-right font-bold text-slate-700 h-11 pr-6 bg-slate-50 sticky right-0 z-30 shadow-[inset_10px_0_10px_-10px_rgba(0,0,0,0.05)] w-[100px] border-l border-slate-100">
+            {/* --- KOLOM AKSI (FIXED) --- */}
+            <TableHead className="h-10 text-right font-bold text-slate-700 bg-slate-50 sticky right-0 z-30 border-l border-slate-200 w-[100px] shadow-[inset_10px_0_10px_-10px_rgba(0,0,0,0.05)]">
               Aksi
             </TableHead>
           </TableRow>
@@ -391,7 +280,7 @@ export function ArsipTable({
           {data.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={7 + filteredSchema.length}
+                colSpan={dynamicSchema.length + 2} // +2 untuk No dan Aksi
                 className="h-64 text-center"
               >
                 <div className="flex flex-col items-center justify-center gap-3">
@@ -402,138 +291,63 @@ export function ArsipTable({
                     <p className="font-medium text-slate-900">
                       Tidak ada arsip ditemukan.
                     </p>
-                    <p className="text-sm text-slate-400">
-                      Coba sesuaikan filter pencarian Anda.
+                    <p className="text-xs text-slate-400">
+                      Sesuaikan filter atau tambahkan data baru.
                     </p>
                   </div>
                 </div>
               </TableCell>
             </TableRow>
           ) : (
-            data.map((item, index) => {
-              let customData = {};
-              try {
-                customData =
-                  typeof item.dataCustom === "string"
-                    ? JSON.parse(item.dataCustom)
-                    : item.dataCustom || {};
-              } catch (e) {
-                console.error(e);
-              }
-
-              return (
-                <TableRow
-                  key={item.id}
-                  className="group border-b border-slate-100 transition-colors hover:bg-blue-50/50 even:bg-slate-100"
+            data.map((item, index) => (
+              <TableRow
+                key={item.id}
+                className="group border-b border-slate-100 transition-colors hover:bg-blue-50/30 even:bg-slate-50/50"
+              >
+                {/* CELL NO */}
+                <TableCell
+                  className="text-center text-slate-500 font-mono text-xs sticky left-0 bg-white group-hover:bg-blue-50/30 group-even:bg-slate-50/50 z-20 border-r border-slate-100"
+                  style={getWidthStyle("no")}
                 >
-                  {/* No */}
-                  <TableCell
-                    className="text-center text-slate-500 font-mono text-xs sticky left-0 bg-white group-hover:bg-blue-50 group-even:bg-slate-100 z-10 border-r border-slate-100/50"
-                    style={getWidthStyle("no")}
-                  >
-                    {(page - 1) * itemsPerPage + index + 1}
-                  </TableCell>
+                  {(page - 1) * itemsPerPage + index + 1}
+                </TableCell>
 
-                  {/* Judul */}
-                  <TableCell
-                    className="py-3 truncate border-r border-slate-100/50"
-                    style={getWidthStyle("judul")}
-                  >
-                    <div
-                      className="font-semibold text-slate-800 text-sm group-hover:text-blue-700 transition-colors truncate"
-                      title={item.judul}
-                    >
-                      {item.judul}
-                    </div>
-                  </TableCell>
-
-                  {/* Nomor Arsip */}
-                  <TableCell
-                    className="border-r border-slate-100/50 truncate"
-                    style={getWidthStyle("nomor")}
-                  >
-                    <div
-                      className="font-mono text-xs text-slate-600 bg-white px-2 py-1 rounded w-fit border border-slate-200 shadow-sm truncate"
-                      title={item.nomorArsip}
-                    >
-                      {item.nomorArsip || "-"}
-                    </div>
-                  </TableCell>
-
-                  {/* Tahun */}
-                  <TableCell
-                    className="text-center border-r border-slate-100/50"
-                    style={getWidthStyle("tahun")}
-                  >
-                    <div className="text-sm font-bold text-slate-600">
-                      {item.tahun}
-                    </div>
-                  </TableCell>
-
-                  {/* Jenis */}
-                  <TableCell
-                    className="border-r border-slate-100/50"
-                    style={getWidthStyle("jenis")}
-                  >
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "font-medium border-0 px-2.5 py-0.5 rounded-md text-xs truncate max-w-full",
-                        item.jenisNama === "Surat Masuk"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : item.jenisNama === "Surat Keluar"
-                            ? "bg-amber-100 text-amber-700"
-                            : "bg-blue-100 text-blue-700",
-                      )}
-                    >
-                      {item.jenisNama}
-                    </Badge>
-                  </TableCell>
-
-                  {/* Status */}
-                  <TableCell
-                    className="border-r border-slate-100/50 truncate"
-                    style={getWidthStyle("status")}
-                  >
-                    <div className="text-xs text-slate-500 font-medium truncate">
-                      {item.status ?? "-"}
-                    </div>
-                  </TableCell>
-
-                  {/* Cell Dinamis */}
-                  {filteredSchema.map((col: any) => (
+                {/* CELLS DINAMIS */}
+                {dynamicSchema.map((col) => {
+                  // Ambil data langsung dari item berdasarkan nama_kolom
+                  // Backend harus mengirim JSON flat: { id: 1, uraian: '...', kode_unik: '...', ... }
+                  const rawValue = item[col.nama_kolom];
+                  
+                  return (
                     <TableCell
-                      key={col.id}
-                      className="text-slate-600 text-sm border-r border-slate-100/50 truncate overflow-hidden"
-                      style={getWidthStyle(col.id)}
+                      key={`${item.id}-${col.nama_kolom}`}
+                      className="py-2 px-3 border-r border-slate-100 truncate text-slate-700"
+                      style={getWidthStyle(col.nama_kolom)}
                     >
-                      <span
-                        className="truncate block"
-                        title={(customData as any)?.[col.id]}
-                      >
-                        {(customData as any)?.[col.id] || "-"}
+                      <span title={String(rawValue ?? "")}>
+                        {renderCellContent(rawValue, col.tipe_data)}
                       </span>
                     </TableCell>
-                  ))}
+                  );
+                })}
 
-                  {/* Aksi */}
-                  <TableCell className="text-right pr-4 sticky right-0 bg-white group-even:bg-slate-100 group-hover:bg-blue-50 shadow-[inset_10px_0_10px_-10px_rgba(0,0,0,0.05)] transition-colors z-10 border-l border-slate-100/50">
-                    <div className="flex items-center justify-end gap-1">
-                      <ArsipDetailDialog item={item} />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onDelete(item.id)}
-                        className="h-8 w-8 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        <span className="sr-only">Hapus</span>
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })
+                {/* CELL AKSI */}
+                <TableCell className="text-right py-2 sticky right-0 bg-white group-hover:bg-blue-50/30 group-even:bg-slate-50/50 z-20 border-l border-slate-100 shadow-[inset_10px_0_10px_-10px_rgba(0,0,0,0.05)]">
+                  <div className="flex items-center justify-end gap-1">
+                    <ArsipDetailDialog item={item} />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onDelete(item.id)}
+                      className="h-8 w-8 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span className="sr-only">Hapus</span>
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))
           )}
         </TableBody>
       </Table>

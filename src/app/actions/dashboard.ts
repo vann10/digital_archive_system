@@ -1,17 +1,15 @@
 "use server";
 
 import { db } from "../../db";
-import { arsip, jenisArsip, users } from "../../db/schema";
-import { count, desc, eq, sql, and, gte } from "drizzle-orm";
+import { jenisArsip, users } from "../../db/schema";
+import { count, sql } from "drizzle-orm";
 
 // ================= TYPES =================
+
 export interface DashboardStats {
   totalArsip: number;
-  arsipAktif: number;
   arsipBulanIni: number;
   penggunaAktif: number;
-  growthArsip: number;
-  growthArsipAktif: number;
   growthBulanIni: number;
 }
 
@@ -28,14 +26,13 @@ export interface JenisArsipDistribution {
 
 export interface ArsipTerbaru {
   id: number;
-  judul: string;
   kode: string;
   jenis: string;
-  tahun: number;
   tanggal: string;
 }
 
 // ================= CONSTANT =================
+
 const CHART_COLORS = [
   "#3B82F6",
   "#22C55E",
@@ -46,184 +43,174 @@ const CHART_COLORS = [
 ];
 
 // ================= MAIN STATS =================
+
 export async function getDashboardStats(): Promise<DashboardStats> {
   try {
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth() + 1;
-    const lastMonth = month === 1 ? 12 : month - 1;
-    const lastMonthYear = month === 1 ? year - 1 : year;
-
     const startOfMonth = `${year}-${String(month).padStart(2, "0")}-01`;
-    const startOfLastMonth = `${lastMonthYear}-${String(lastMonth).padStart(2, "0")}-01`;
 
-    // TOTAL ARSIP
-    const totalArsip = (await db.select({ count: count() }).from(arsip))[0].count;
+    // ambil semua jenis
+    const jenisList = await db.select().from(jenisArsip);
 
-    // ARSIP AKTIF TOTAL
-    const arsipAktif = (
-      await db
-        .select({ count: count() })
-        .from(arsip)
-        .where(eq(arsip.status, "aktif"))
-    )[0].count;
+    let totalArsip = 0;
+    let arsipBulanIni = 0;
 
-    // ARSIP BULAN INI
-    const arsipBulanIni = (
-      await db
-        .select({ count: count() })
-        .from(arsip)
-        .where(gte(arsip.createdAt, startOfMonth))
-    )[0].count;
+    for (const jenis of jenisList) {
+      const tableName = jenis.namaTabel;
 
-    // ARSIP BULAN LALU
-    const arsipBulanLalu = (
-      await db
-        .select({ count: count() })
-        .from(arsip)
-        .where(
-          and(
-            gte(arsip.createdAt, startOfLastMonth),
-            sql`${arsip.createdAt} < ${startOfMonth}`
-          )
-        )
-    )[0].count;
+      if (!/^[a-zA-Z0-9_]+$/.test(tableName)) continue;
 
-    // ARSIP AKTIF BULAN INI
-    const arsipAktifNow = (
-      await db
-        .select({ count: count() })
-        .from(arsip)
-        .where(
-          and(
-            eq(arsip.status, "aktif"),
-            gte(arsip.createdAt, startOfMonth)
-          )
-        )
-    )[0].count;
+      const totalResult: any = await db.get(
+        sql.raw(`SELECT COUNT(*) as count FROM ${tableName}`)
+      );
 
-    // ARSIP AKTIF BULAN LALU
-    const arsipAktifLast = (
-      await db
-        .select({ count: count() })
-        .from(arsip)
-        .where(
-          and(
-            eq(arsip.status, "aktif"),
-            gte(arsip.createdAt, startOfLastMonth),
-            sql`${arsip.createdAt} < ${startOfMonth}`
-          )
-        )
-    )[0].count;
+      totalArsip += totalResult?.count || 0;
 
-    // PENGGUNA
+      const bulanResult: any = await db.get(
+        sql.raw(`
+          SELECT COUNT(*) as count 
+          FROM ${tableName}
+          WHERE created_at >= '${startOfMonth}'
+        `)
+      );
+
+      arsipBulanIni += bulanResult?.count || 0;
+    }
+
+    // pengguna
     const penggunaAktif = (await db.select({ count: count() }).from(users))[0].count;
-
-    // GROWTH REAL
-    const growthBulanIni = arsipBulanLalu > 0
-      ? ((arsipBulanIni - arsipBulanLalu) / arsipBulanLalu) * 100
-      : 0;
-
-    const growthArsip = totalArsip > 0
-      ? ((arsipBulanIni) / totalArsip) * 100
-      : 0;
-
-    const growthArsipAktif = arsipAktifLast > 0
-      ? ((arsipAktifNow - arsipAktifLast) / arsipAktifLast) * 100
-      : 0;
 
     return {
       totalArsip,
-      arsipAktif,
       arsipBulanIni,
       penggunaAktif,
-      growthArsip: Number(growthArsip.toFixed(2)),
-      growthArsipAktif: Number(growthArsipAktif.toFixed(2)),
-      growthBulanIni: Number(growthBulanIni.toFixed(2)),
+      growthBulanIni: 0, // bisa ditambah nanti
     };
   } catch (err) {
     console.error(err);
     return {
       totalArsip: 0,
-      arsipAktif: 0,
       arsipBulanIni: 0,
       penggunaAktif: 0,
-      growthArsip: 0,
-      growthArsipAktif: 0,
       growthBulanIni: 0,
     };
   }
 }
 
 // ================= BAR CHART =================
+
 export async function getArsipPerBulan(): Promise<ArsipPerBulan[]> {
   const year = new Date().getFullYear();
   const bulan = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
 
-  const result = await db
-    .select({
-      month: sql<number>`CAST(strftime('%m', ${arsip.createdAt}) AS INTEGER)`,
-      total: count(),
-    })
-    .from(arsip)
-    .where(sql`strftime('%Y', ${arsip.createdAt}) = ${year.toString()}`)
-    .groupBy(sql`strftime('%m', ${arsip.createdAt})`);
+  const jenisList = await db.select().from(jenisArsip);
 
-  return bulan.map((name, i) => {
-    const found = result.find(r => r.month === i + 1);
-    return { name, total: found?.total || 0 };
-  });
+  const monthlyTotals = new Array(12).fill(0);
+
+  for (const jenis of jenisList) {
+    const tableName = jenis.namaTabel;
+    if (!/^[a-zA-Z0-9_]+$/.test(tableName)) continue;
+
+    const result: any[] = await db.all(
+      sql.raw(`
+        SELECT 
+          CAST(strftime('%m', created_at) AS INTEGER) as month,
+          COUNT(*) as total
+        FROM ${tableName}
+        WHERE strftime('%Y', created_at) = '${year}'
+        GROUP BY month
+      `)
+    );
+
+    result.forEach(r => {
+      monthlyTotals[r.month - 1] += r.total;
+    });
+  }
+
+  return bulan.map((name, i) => ({
+    name,
+    total: monthlyTotals[i],
+  }));
 }
 
 // ================= PIE CHART =================
-export async function getJenisArsipDistribution(): Promise<JenisArsipDistribution[]> {
-  const result = await db
-    .select({ name: jenisArsip.nama, value: count() })
-    .from(arsip)
-    .innerJoin(jenisArsip, eq(arsip.jenisArsipId, jenisArsip.id))
-    .where(eq(jenisArsip.isActive, true))
-    .groupBy(jenisArsip.id, jenisArsip.nama);
 
-  return result.map((r, i) => ({
-    ...r,
-    color: CHART_COLORS[i % CHART_COLORS.length],
-  }));
+export async function getJenisArsipDistribution(): Promise<JenisArsipDistribution[]> {
+  const jenisList = await db.select().from(jenisArsip);
+
+  const result: JenisArsipDistribution[] = [];
+
+  for (let i = 0; i < jenisList.length; i++) {
+    const jenis = jenisList[i];
+    const tableName = jenis.namaTabel;
+
+    if (!/^[a-zA-Z0-9_]+$/.test(tableName)) continue;
+
+    const totalResult: any = await db.get(
+      sql.raw(`SELECT COUNT(*) as count FROM ${tableName}`)
+    );
+
+    result.push({
+      name: jenis.namaJenis,
+      value: totalResult?.count || 0,
+      color: CHART_COLORS[i % CHART_COLORS.length],
+    });
+  }
+
+  return result;
 }
 
 // ================= LATEST =================
-export async function getArsipTerbaru(): Promise<ArsipTerbaru[]> {
-  const result = await db
-    .select({
-      id: arsip.id,
-      judul: arsip.judul,
-      nomorArsip: arsip.nomorArsip,
-      jenisNama: jenisArsip.nama,
-      tahun: arsip.tahun,
-      createdAt: arsip.createdAt,
-    })
-    .from(arsip)
-    .innerJoin(jenisArsip, eq(arsip.jenisArsipId, jenisArsip.id))
-    .orderBy(desc(arsip.createdAt))
-    .limit(5);
 
-  return result.map(r => ({
-    id: r.id,
-    judul: r.judul,
-    kode: r.nomorArsip || "-",
-    jenis: r.jenisNama,
-    tahun: r.tahun,
-    tanggal: new Date(r.createdAt!).toLocaleDateString("id-ID"),
-  }));
+export async function getArsipTerbaru(): Promise<ArsipTerbaru[]> {
+  const jenisList = await db.select().from(jenisArsip);
+
+  let allData: ArsipTerbaru[] = [];
+
+  for (const jenis of jenisList) {
+    const tableName = jenis.namaTabel;
+
+    if (!/^[a-zA-Z0-9_]+$/.test(tableName)) continue;
+
+    const rows: any[] = await db.all(
+      sql.raw(`
+        SELECT id, kode_unik, created_at
+        FROM ${tableName}
+        ORDER BY created_at DESC
+        LIMIT 5
+      `)
+    );
+
+    rows.forEach(r => {
+      allData.push({
+        id: r.id,
+        kode: r.kode_unik,
+        jenis: jenis.namaJenis,
+        tanggal: new Date(r.created_at).toLocaleDateString("id-ID"),
+      });
+    });
+  }
+
+  // sort global
+  allData.sort((a, b) =>
+    new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
+  );
+
+  return allData.slice(0, 5);
 }
 
 // ================= ALL =================
+
 export async function getAllDashboardData() {
-  const [stats, arsipPerBulan, jenisDistribution, arsipTerbaru] = await Promise.all([
-    getDashboardStats(),
-    getArsipPerBulan(),
-    getJenisArsipDistribution(),
-    getArsipTerbaru(),
-  ]);
+  const [stats, arsipPerBulan, jenisDistribution, arsipTerbaru] =
+    await Promise.all([
+      getDashboardStats(),
+      getArsipPerBulan(),
+      getJenisArsipDistribution(),
+      getArsipTerbaru(),
+    ]);
 
   return { stats, arsipPerBulan, jenisDistribution, arsipTerbaru };
 }
