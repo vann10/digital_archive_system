@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { db } from "../../db";
 import { jenisArsip, arsip } from "../../db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and, like } from "drizzle-orm";
+import { Search } from "lucide-react";
 
 // Helper untuk membuat kode unik (slug) dari nama
 function generateKode(text: string) {
@@ -18,8 +19,14 @@ function generateKode(text: string) {
 
 // --- ACTIONS ---
 
-export async function getJenisArsipList() {
+export async function getJenisArsipList(search?: string) {
   try {
+    const filters = [eq(jenisArsip.isActive, true)];
+
+    if (search) {
+      filters.push(like(jenisArsip.nama, `%${search}`));
+    }
+
     const list = await db
       .select({
         id: jenisArsip.id,
@@ -32,7 +39,7 @@ export async function getJenisArsipList() {
       })
       .from(jenisArsip)
       .leftJoin(arsip, eq(jenisArsip.id, arsip.jenisArsipId))
-      .where(eq(jenisArsip.isActive, true))
+      .where(and(...filters))
       .groupBy(jenisArsip.id)
       .orderBy(jenisArsip.id);
 

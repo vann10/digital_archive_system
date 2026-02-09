@@ -23,12 +23,14 @@ export async function saveBulkArsip(jenisId: number, data: any[]) {
       // Gunakan fallback value jika kosong
       const judul = row.judul || "Tanpa Judul";
       const nomorArsip = row.nomorArsip || null;
+      const status = row.status || null;
       const tahun = row.tahun ? parseInt(row.tahun) : new Date().getFullYear();
+
 
       // 2. Pisahkan Data Custom
       // Kita ambil semua key yang BUKAN system field
       const dataCustom: Record<string, any> = {};
-      const systemKeys = ["judul", "nomorArsip", "tahun", "id"]; // Key yang dikecualikan
+      const systemKeys = ["judul", "nomorArsip", "tahun", "id", "status"];
 
       Object.keys(row).forEach((key) => {
         if (!systemKeys.includes(key)) {
@@ -39,8 +41,9 @@ export async function saveBulkArsip(jenisId: number, data: any[]) {
       return {
         jenisArsipId: jenisId,
         judul,
-        nomorArsip, // Pastikan key di DB schema adalah 'nomorArsip'
+        nomorArsip,
         tahun,
+        status,
         dataCustom, // Drizzle akan otomatis stringify ini ke JSON karena mode: 'json'
         createdAt: new Date().toISOString(),
       };

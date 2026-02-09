@@ -73,7 +73,7 @@ export function StatsCards({
       <Card className="shadow-sm border-slate-200">
         <CardContent className="p-6 flex items-start justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-500 mb-1">Arsip Bulan Ini</p>
+            <p className="text-xs font-medium text-slate-500 mb-1">Arsip Masuk Bulan Ini</p>
             <h3 className="text-2xl font-bold text-slate-900">
               {arsipBulanIni.toLocaleString('id-ID')}
             </h3>

@@ -14,6 +14,7 @@ export async function getJenisArsipList() {
         nama: jenisArsip.nama,
         kode: jenisArsip.kode,
         deskripsi: jenisArsip.deskripsi,
+        schemaConfig: jenisArsip.schemaConfig,
         arsipCount: sql<number>`count(${arsip.id})`,
       })
       .from(jenisArsip)
@@ -111,7 +112,6 @@ export async function getArsipForExport(filters: { jenisId?: string; tahun?: str
         tahun: arsip.tahun,
         jenis: jenisArsip.nama, 
         schemaConfig: jenisArsip.schemaConfig, 
-        keterangan: arsip.keterangan,
         data_custom: arsip.dataCustom,
         created_at: arsip.createdAt,
       })
@@ -126,7 +126,6 @@ export async function getArsipForExport(filters: { jenisId?: string; tahun?: str
         "Judul Arsip": item.judul,
         "Tahun": item.tahun,
         "Jenis Arsip": item.jenis || "Tidak Diketahui",
-        "Keterangan": item.keterangan || "-",
         "Tanggal Input": item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID') : "-"
       };
       

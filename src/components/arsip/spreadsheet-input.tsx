@@ -28,13 +28,13 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import { saveBulkArsip } from "../../app/actions/input-arsip";
-import { cn } from "../../lib/utils";
 
 // --- TYPE DEFINITIONS ---
 type SchemaConfig = {
   id: string;
   label: string;
   type: string;
+  status: string;
   required: boolean;
   group?: string;
 };
@@ -46,6 +46,7 @@ type Props = {
 // Default widths
 const DEFAULT_WIDTHS: Record<string, number> = {
   fixed_judul: 300,
+  fixed_status: 140,
   fixed_nomor: 150,
   fixed_tahun: 100,
 };
@@ -252,32 +253,28 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
                 {/* BARIS 2: LABEL KOLOM SPESIFIK */}
                 <TableRow className="bg-white border-b border-slate-200 shadow-sm">
                   {/* Dynamic Columns */}
-                  {uniqueGroups.map((groupName) =>
-                    schema
-                      .filter(
-                        (col) => (col.group || "Detail Tambahan") === groupName,
-                      )
-                      .map((col) => (
-                        <TableHead
-                          key={col.id}
-                          className="relative text-slate-600 font-medium border-r border-slate-100 bg-slate-50/30 align-middle px-2 select-none"
-                          style={{
-                            width: colWidths[col.id],
-                            minWidth: colWidths[col.id],
-                            maxWidth: colWidths[col.id],
-                          }}
-                        >
-                          <div className="truncate w-full" title={col.label}>
-                            {col.label}
-                          </div>
-                          {col.required && (
-                            <span className="text-red-400 ml-0.5 absolute top-1 right-2 text-[10px]">
-                              *
-                            </span>
-                          )}
-                          <Resizer colId={col.id} />
-                        </TableHead>
-                      )),
+                  {uniqueGroups.map(() =>
+                    schema.map((col) => (
+                      <TableHead
+                        key={col.id}
+                        className="relative text-slate-600 font-medium border-r border-slate-100 bg-slate-50/30 align-middle px-2 select-none"
+                        style={{
+                          width: colWidths[col.id],
+                          minWidth: colWidths[col.id],
+                          maxWidth: colWidths[col.id],
+                        }}
+                      >
+                        <div className="truncate w-full" title={col.label}>
+                          {col.label}
+                        </div>
+                        {col.required && (
+                          <span className="text-red-400 ml-0.5 absolute top-1 right-2 text-[10px]">
+                            *
+                          </span>
+                        )}
+                        <Resizer colId={col.id} />
+                      </TableHead>
+                    )),
                   )}
                 </TableRow>
               </TableHeader>
@@ -294,32 +291,27 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
 
                     {/* Input Dynamic */}
                     {uniqueGroups.map((groupName) =>
-                      schema
-                        .filter(
-                          (col) =>
-                            (col.group || "Detail Tambahan") === groupName,
-                        )
-                        .map((col) => (
-                          <TableCell
-                            key={col.id}
-                            className="p-1 border-r border-slate-100 overflow-hidden"
-                          >
-                            <Input
-                              type={
-                                col.type === "date"
-                                  ? "date"
-                                  : col.type === "number"
-                                    ? "number"
-                                    : "text"
-                              }
-                              className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-blue-500 h-9 rounded-sm bg-transparent text-slate-700 w-full"
-                              value={row[col.id] || ""}
-                              onChange={(e) =>
-                                handleInputChange(index, col.id, e.target.value)
-                              }
-                            />
-                          </TableCell>
-                        )),
+                      schema.map((col) => (
+                        <TableCell
+                          key={col.id}
+                          className="p-1 border-r border-slate-100 overflow-hidden"
+                        >
+                          <Input
+                            type={
+                              col.type === "date"
+                                ? "date"
+                                : col.type === "number"
+                                  ? "number"
+                                  : "text"
+                            }
+                            className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-blue-500 h-9 rounded-sm bg-transparent text-slate-700 w-full"
+                            value={row[col.id] || ""}
+                            onChange={(e) =>
+                              handleInputChange(index, col.id, e.target.value)
+                            }
+                          />
+                        </TableCell>
+                      )),
                     )}
 
                     <TableCell className="text-center p-0">
@@ -342,23 +334,23 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
           {/* FOOTER */}
           <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="text-xs text-slate-500">
-               Total: {rows.length} baris data akan disimpan.
+              Total: {rows.length} baris data akan disimpan.
             </div>
-            
+
             <div className="flex gap-3 w-full md:w-auto items-center">
               {/* INPUT JUMLAH BARIS */}
               <div className="flex items-center gap-2 bg-white p-1 rounded-md border border-slate-200">
-                <Input 
-                  type="number" 
-                  min={1} 
+                <Input
+                  type="number"
+                  min={1}
                   max={100}
                   className="w-16 h-8 text-center border-none focus-visible:ring-0 px-1"
                   value={addCount}
                   onChange={(e) => setAddCount(parseInt(e.target.value) || 1)}
                 />
-                <Button 
-                  variant="secondary" 
-                  onClick={addMultipleRows} 
+                <Button
+                  variant="secondary"
+                  onClick={addMultipleRows}
                   className="h-8 px-3 text-xs gap-1 border-l rounded-l-none"
                 >
                   <Plus size={14} /> Tambah
@@ -367,27 +359,35 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
 
               <div className="w-px h-8 bg-slate-300 mx-1 hidden md:block"></div>
 
-              <Button onClick={handleSave} disabled={isSaving} className="flex-1 md:flex-none gap-2 min-w-[140px] bg-blue-600">
-                {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+              <Button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex-1 md:flex-none gap-2 min-w-[140px] bg-blue-600"
+              >
+                {isSaving ? (
+                  <Loader2 className="animate-spin" size={16} />
+                ) : (
+                  <Save size={16} />
+                )}
                 Simpan Semua
               </Button>
             </div>
           </div>
         </div>
-      ) : (
-        // ... Empty state ...
-        null
-      )}
-       
-       {/* ... render empty state jika null ... */}
-       {!selectedJenisId && (
+      ) : // ... Empty state ...
+      null}
+
+      {/* ... render empty state jika null ... */}
+      {!selectedJenisId && (
         <div className="h-[400px] border-2 border-dashed border-slate-300 rounded-xl bg-slate-50/50 flex flex-col items-center justify-center text-slate-400 gap-4">
           <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm">
             <AlertCircle className="w-10 h-10 text-slate-300" />
           </div>
-          <p>Pilih <strong>Jenis Arsip</strong> di atas untuk memulai input data.</p>
+          <p>
+            Pilih <strong>Jenis Arsip</strong> di atas untuk memulai input data.
+          </p>
         </div>
-       )}
+      )}
     </div>
   );
 }

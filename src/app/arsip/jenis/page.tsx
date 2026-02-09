@@ -5,46 +5,61 @@ import {
   FolderOpen,
   Pencil,
   LayoutTemplate,
-  Database
+  Database,
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Badge } from "../../../components/ui/badge";
 // Import komponen delete yang baru dibuat
 import { DeleteJenisButton } from "../../../components/arsip/delete-button";
+import { SearchJenis } from "@/src/components/arsip/search-jenis";
 
 export const dynamic = "force-dynamic";
+interface PageProps {
+  searchParams: Promise<{ q?: string }>;
+}
 
-export default async function JenisArsipPage() {
-  const jenisList = await getJenisArsipList();
+export default async function JenisArsipPage({ searchParams }: PageProps) {
+  const query = (await searchParams).q;
+  const jenisList = await getJenisArsipList(query);
 
   return (
     <div className="space-y-5 animate-in fade-in duration-500">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-          Manajemen Jenis Arsip
-        </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Buat dan atur template struktur data untuk setiap jenis arsip.
-        </p>
+
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+            Manajemen Jenis Arsip
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Buat dan atur template struktur data untuk setiap jenis arsip.
+          </p>
+        </div>
+        <SearchJenis />
       </div>
 
-      {/* Grid Container */}
+{/* Grid Container */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* CARD 1: CREATE NEW */}
-        <Link href="/arsip/jenis/form" className="group block h-full">
-          <div className="h-full border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center p-8 text-center hover:border-blue-500 hover:bg-blue-50/30 transition-all cursor-pointer min-h-[180px]">
-            <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <Plus className="w-6 h-6" />
+        {/* Tombol Buat Baru hanya muncul jika tidak sedang mencari atau tetap muncul sesuai preferensi */}
+        {!query && (
+          <Link href="/arsip/jenis/form" className="group block h-full">
+            <div className="h-full border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center p-8 text-center hover:border-blue-500 hover:bg-blue-50/30 transition-all cursor-pointer min-h-[180px]">
+              <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Plus className="w-6 h-6" />
+              </div>
+              <h3 className="font-semibold text-slate-900 group-hover:text-blue-700">
+                Buat Jenis Baru
+              </h3>
             </div>
-            <h3 className="font-semibold text-slate-900 group-hover:text-blue-700">
-              Buat Jenis Baru
-            </h3>
-            <p className="text-sm text-slate-500 mt-1 max-w-[200px]">
-              Tambahkan template arsip dengan kolom kustom.
-            </p>
+          </Link>
+        )}
+
+        {/* Jika list kosong karena pencarian */}
+        {jenisList.length === 0 && query && (
+          <div className="col-span-full py-12 text-center border-2 border-dashed rounded-xl border-slate-200">
+            <p className="text-slate-500">Tidak ada jenis arsip yang cocok dengan "{query}"</p>
           </div>
-        </Link>
+        )}
 
         {/* MAPPING EXISTING CARDS */}
         {jenisList.map((item: any) => (
