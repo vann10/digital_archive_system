@@ -1,5 +1,4 @@
 // components/db/schema.ts
-// 
 
 import { db } from "../db";
 import { sqliteTable, text, integer, blob } from 'drizzle-orm/sqlite-core';
@@ -49,9 +48,23 @@ export const schemaConfig = sqliteTable('schema_config', {
   urutan: integer('urutan'),
 });
 
+// --------------------------------------------------------------------------
+// 4. TABEL DEFAULT VALUES (BARU)
+// --------------------------------------------------------------------------
+// Tabel untuk menyimpan nilai default per jenis arsip
+export const defaultValues = sqliteTable('default_values', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  jenisId: integer('jenis_id')
+    .references(() => jenisArsip.id)
+    .notNull(),
+  namaKolom: text('nama_kolom').notNull(), // Nama kolom yang akan diberi default value
+  nilaiDefault: text('nilai_default').notNull(), // Nilai default
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+});
 
 // --------------------------------------------------------------------------
-// 4. TABEL LOG
+// 5. TABEL LOG
 // --------------------------------------------------------------------------
 export const logAktivitas = sqliteTable('log_aktivitas', {
   id: integer('id').primaryKey({ autoIncrement: true }),

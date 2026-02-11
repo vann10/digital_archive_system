@@ -9,18 +9,19 @@ import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
 import { Textarea } from "../../../../components/ui/textarea";
 import { Card, CardContent } from "../../../../components/ui/card";
-// Pastikan path import ini sesuai dengan struktur folder Anda
 import { SchemaBuilder, SchemaField } from "../../../../components/arsip/schema-builder"; 
 import { getJenisArsipDetail, saveJenisArsip } from "../../../../app/actions/jenis-arsip";
 
-// --- DEFINISI KOLOM STANDAR (SESUAI DATABASE) ---
+// --- DEFINISI KOLOM STANDAR (DISESUAIKAN DENGAN KEBUTUHAN) ---
 const SYSTEM_FIELDS: SchemaField[] = [
-  // 1. Identitas Arsip Utama
-  { id: "nomorArsip", label: "Nomor Arsip", type: "text", required: false, isSystem: false },
+  // CATATAN: Prefix dan Nomor Arsip TIDAK ada di sini karena menjadi kolom terpisah di tabel
+  
+  // 1. Identitas Arsip
   { id: "kodeKlasifikasi", label: "Kode Klasifikasi", type: "text", required: false, isSystem: false },
-  { id: "uraian", label: "Uraian / Ringkasan", type: "text", required: false, isSystem: false },
-  { id: "kurunWaktu", label: "Kurun Waktu (Tahun)", type: "number", required: false, isSystem: false },
   { id: "unitPengolah", label: "Unit Pengolah", type: "text", required: false, isSystem: false },
+  { id: "uraian", label: "Uraian", type: "text", required: false, isSystem: false },
+  { id: "waktuAktif", label: "Waktu Aktif", type: "text", required: false, isSystem: false },
+  { id: "waktuInaktif", label: "Waktu Inaktif", type: "text", required: false, isSystem: false },
   
   // 2. Fisik & Media
   { id: "tingkatPerkembangan", label: "Tingkat Perkembangan", type: "select", required: false, isSystem: false, options: ["Asli", "Salinan", "Tembusan"] },
@@ -28,16 +29,16 @@ const SYSTEM_FIELDS: SchemaField[] = [
   { id: "kondisiFisik", label: "Kondisi Fisik", type: "text", required: false, isSystem: false },
   { id: "jumlahBerkas", label: "Jumlah Berkas", type: "number", required: false, isSystem: false },
 
-  // 3. Lokasi Simpan (Depo)
-  { id: "lokasiRuang", label: "Lokasi Ruang", type: "text", required: false, isSystem: false },
-  { id: "lokasiRak", label: "Lokasi Rak", type: "text", required: false, isSystem: false },
-  { id: "lokasiBaris", label: "Lokasi Baris", type: "text", required: false, isSystem: false },
-  { id: "lokasiBox", label: "Lokasi Box", type: "text", required: false, isSystem: false },
-  { id: "lokasiFolder", label: "Lokasi Folder", type: "text", required: false, isSystem: false },
+  // 3. Lokasi Simpan
+  { id: "ruang", label: "Ruang", type: "text", required: false, isSystem: false },
+  { id: "rak", label: "Rak", type: "text", required: false, isSystem: false },
+  { id: "baris", label: "Baris", type: "text", required: false, isSystem: false },
+  { id: "noBox", label: "No. Box", type: "text", required: false, isSystem: false },
+  { id: "noFolder", label: "No. Folder", type: "text", required: false, isSystem: false },
+  { id: "lokasiSimpan", label: "Lokasi Simpan", type: "text", required: false, isSystem: false },
 
-  // 4. Manajemen Retensi
-  { id: "jra", label: "JRA (Jadwal Retensi)", type: "text", required: false, isSystem: false },
-  { id: "keterangan", label: "Keterangan Tambahan", type: "text", required: false, isSystem: false },
+  // 4. Keterangan
+  { id: "ketJra", label: "Ket JRA", type: "text", required: false, isSystem: false },
 ];
 
 export default function JenisArsipForm() {
@@ -50,25 +51,21 @@ export default function JenisArsipForm() {
   const [isSaving, startTransition] = useTransition();
   
   const [nama, setNama] = useState("");
+  const [prefixKode, setPrefixKode] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
-  // Inisialisasi awal langsung menggunakan SYSTEM_FIELDS lengkap
   const [schemaFields, setSchemaFields] = useState<SchemaField[]>(SYSTEM_FIELDS);
 
   useEffect(() => {
     if (isEditMode) {
       getJenisArsipDetail(Number(id)).then((res) => {
         if (res.jenis) {
-          setNama(res.jenis.namaJenis); // Sesuaikan dengan properti DB (namaJenis)
+          setNama(res.jenis.namaJenis);
+          setPrefixKode(res.jenis.prefixKode || "");
+          setDeskripsi(res.jenis.deskripsi || "");
           
-          // --- LOGIC MERGE DATA (Agar kolom sistem baru tetap muncul di data lama) ---
-          const savedSchema = (res.schema || []) as any[]; // Data dari DB (schema_config)
+          const savedSchema = (res.schema || []) as any[];
           
-          // Mapping data DB (snake_case) ke format UI (camelCase) jika perlu, 
-          // atau gunakan savedSchema langsung jika strukturnya sudah sesuai SchemaField.
-          // Disini kita asumsikan savedSchema berisi custom fields user saja.
-          
-          // Filter hanya custom field dari database (yang bukan system field)
-          // Asumsi: Kita mendeteksi custom field jika ID-nya tidak ada di SYSTEM_FIELDS
+          // Filter custom fields (yang bukan system fields)
           const customFields = savedSchema.filter(
             (saved) => !SYSTEM_FIELDS.some((sys) => sys.id === saved.namaKolom || sys.label === saved.labelKolom)
           ).map(f => ({
@@ -79,30 +76,29 @@ export default function JenisArsipForm() {
             isSystem: false
           }));
 
-          // Gabungkan: System Fields (Selalu di atas) + Custom Fields (Dari DB)
           setSchemaFields([...SYSTEM_FIELDS, ...customFields]);
         }
         setLoading(false);
       });
     } else {
-      // Jika mode baru, reset ke default system fields
       setSchemaFields([...SYSTEM_FIELDS]);
       setLoading(false);
     }
   }, [id, isEditMode]);
 
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nama.trim()) return;
+    if (!nama.trim() || !prefixKode.trim()) {
+      alert("Nama Jenis dan Prefix Kode wajib diisi!");
+      return;
+    }
 
     const formData = new FormData();
     if (id) formData.append("id", id);
-    // Sesuaikan nama field dengan yang diterima Server Action (nama_jenis / prefix_kode)
     formData.append("nama_jenis", nama); 
-    formData.append("prefix_kode", nama.substring(0, 3).toUpperCase()); // Generate prefix otomatis sederhana
-    formData.append("deskripsi", deskripsi); // Jika server action menerima deskripsi
-    
-    // Simpan JSON schema lengkap
+    formData.append("prefix_kode", prefixKode.toUpperCase());
+    formData.append("deskripsi", deskripsi);
     formData.append("schema_json", JSON.stringify(schemaFields));
 
     startTransition(async () => {
@@ -110,7 +106,7 @@ export default function JenisArsipForm() {
       if (result.success) {
          router.push("/arsip/jenis");
       } else {
-         alert(result.message); // Tampilkan error sederhana
+         alert(result.message);
       }
     });
   };
@@ -138,7 +134,7 @@ export default function JenisArsipForm() {
             {isEditMode ? "Edit Jenis Arsip" : "Buat Jenis Arsip Baru"}
           </h1>
           <p className="text-sm text-slate-500">
-            Standar kolom telah diterapkan. Anda dapat menambahkan kolom khusus tambahan.
+            Prefix dan Nomor Arsip akan menjadi kolom terpisah pada tabel.
           </p>
         </div>
       </div>
@@ -156,14 +152,33 @@ export default function JenisArsipForm() {
               
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase">Nama Jenis</Label>
+                  <Label className="text-xs font-semibold text-slate-500 uppercase">
+                    Nama Jenis <span className="text-red-500">*</span>
+                  </Label>
                   <Input 
                     value={nama}
                     onChange={(e) => setNama(e.target.value)}
-                    placeholder="e.g. Surat Keputusan"
+                    placeholder="e.g. Arsip COVID"
                     className="font-medium"
                     required
                   />
+                </div>
+                
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-slate-500 uppercase">
+                    Prefix Kode <span className="text-red-500">*</span>
+                  </Label>
+                  <Input 
+                    value={prefixKode}
+                    onChange={(e) => setPrefixKode(e.target.value.toUpperCase())}
+                    placeholder="e.g. COVID, SK, DINSOS"
+                    className="font-mono font-semibold uppercase"
+                    maxLength={10}
+                    required
+                  />
+                  <p className="text-xs text-slate-400 mt-1">
+                    Prefix akan menjadi kolom terpisah di input arsip
+                  </p>
                 </div>
                 
                 <div className="space-y-1">
@@ -202,9 +217,12 @@ export default function JenisArsipForm() {
         <div className="md:col-span-2">
           <Card className="border-slate-200 shadow-sm min-h-[500px]">
              <CardContent className="p-6">
-                {/* Pastikan component SchemaBuilder Anda menangani properti 'isSystem' 
-                  dengan menonaktifkan tombol delete/edit untuk field tersebut.
-                */}
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs text-blue-700 font-medium">
+                    ℹ️ Kolom "Prefix" dan "Nomor Arsip" akan otomatis menjadi kolom terpisah saat input arsip.
+                    Anda tidak perlu menambahkan kolom tersebut di sini.
+                  </p>
+                </div>
                 <SchemaBuilder 
                   fields={schemaFields} 
                   onChange={setSchemaFields} 

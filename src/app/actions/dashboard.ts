@@ -176,7 +176,7 @@ export async function getArsipTerbaru(): Promise<ArsipTerbaru[]> {
 
     const rows: any[] = await db.all(
       sql.raw(`
-        SELECT id, kode_unik, created_at
+        SELECT id, kode_klasifikasi, created_at
         FROM ${tableName}
         ORDER BY created_at DESC
         LIMIT 5

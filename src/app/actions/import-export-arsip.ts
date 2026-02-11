@@ -12,7 +12,7 @@ export async function getJenisArsipList() {
       .select({
         id: jenisArsip.id,
         nama: jenisArsip.nama,
-        kode: jenisArsip.kode,
+        kodeUnik: jenisArsip.kodeUnik,
         deskripsi: jenisArsip.deskripsi,
         schemaConfig: jenisArsip.schemaConfig,
         arsipCount: sql<number>`count(${arsip.id})`,

@@ -4,7 +4,6 @@ import { getAllDashboardData } from "../actions/dashboard";
 import { StatsCards } from "@/src/components/dashboard/stats-card";
 import { BarChartCard } from "@/src/components/dashboard/bar-chart";
 import { PieChartCard } from "@/src/components/dashboard/pie-chart";
-import { ArsipTerbaruTable } from "@/src/components/dashboard/arsip-terbaru";
 
 export default async function DashboardPage() {
   const { stats, arsipPerBulan, jenisDistribution, arsipTerbaru } =
@@ -37,8 +36,6 @@ export default async function DashboardPage() {
         <PieChartCard data={jenisDistribution} />
       </div>
 
-      {/* RECENT */}
-      <ArsipTerbaruTable data={arsipTerbaru} />
     </div>
   );
 }

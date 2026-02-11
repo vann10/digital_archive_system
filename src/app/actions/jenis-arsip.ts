@@ -55,6 +55,7 @@ export async function getJenisArsipList(search?: string) {
 
     for (const item of list) {
       let totalData = 0;
+      let lastNomor = 0;
 
       try {
         const countResult = db.get(
@@ -62,13 +63,22 @@ export async function getJenisArsipList(search?: string) {
         ) as any;
 
         totalData = countResult?.total ?? 0;
+
+        const lastResult = db.get(
+          sql.raw(`SELECT MAX (nomor_arsip) as last FROM ${item.namaTabel}`)
+        ) as any;
+
+        lastNomor = lastResult?.last ?? 0;
+
       } catch {
         totalData = 0;
+        lastNomor = 0;
       }
 
       result.push({
         ...item,
         jumlahData: totalData,
+        nomor_arsip: lastNomor
       });
     }
 
@@ -182,16 +192,22 @@ export async function saveJenisArsip(prevState: any, formData: FormData) {
       // Definisi kolom fisik
       const columnDefinitions: string[] = [];
 
+      // System columns
       columnDefinitions.push(`id INTEGER PRIMARY KEY AUTOINCREMENT`);
-      columnDefinitions.push(`nomor_urut_internal INTEGER`);
-      columnDefinitions.push(`kode_unik TEXT UNIQUE`);
+      columnDefinitions.push(`prefix TEXT NOT NULL DEFAULT ''`);
+      columnDefinitions.push(`nomor_arsip TEXT NOT NULL DEFAULT ''`);
       columnDefinitions.push(`created_at DATETIME DEFAULT CURRENT_TIMESTAMP`);
       columnDefinitions.push(`created_by INTEGER`);
 
-      // Loop schema
+      // Loop schema - User defined columns
+      // SEMUA KOLOM DIBUAT NOT NULL DENGAN DEFAULT VALUE
       for (const [index, field] of uiSchemaInfo.entries()) {
         const colName = generateColumnName(field.label);
         const colType = field.type === "number" ? "INTEGER" : "TEXT";
+        
+        // Tambahkan NOT NULL dengan DEFAULT
+        const defaultVal = colType === "INTEGER" ? "0" : "''";
+        columnDefinitions.push(`${colName} ${colType} NOT NULL DEFAULT ${defaultVal}`);
 
         tx.insert(schemaConfig).values({
           jenisId: newJenisId,
@@ -202,8 +218,6 @@ export async function saveJenisArsip(prevState: any, formData: FormData) {
           isVisibleList: true,
           urutan: index + 1,
         }).run();
-
-        columnDefinitions.push(`${colName} ${colType}`);
       }
 
       // CREATE TABLE
@@ -212,10 +226,14 @@ export async function saveJenisArsip(prevState: any, formData: FormData) {
 
       tx.run(sql.raw(createTableQuery));
 
-      // INDEX
+      // INDEX untuk prefix dan nomor_arsip
       tx.run(
-        sql.raw(`CREATE INDEX idx_${namaTabel}_kode ON ${namaTabel}(kode_unik)`)
+        sql.raw(`CREATE INDEX idx_${namaTabel}_prefix ON ${namaTabel}(prefix)`)
       );
+      tx.run(
+        sql.raw(`CREATE INDEX idx_${namaTabel}_nomor ON ${namaTabel}(nomor_arsip)`)
+      );
+
     });
 
     revalidatePath("/arsip/jenis");

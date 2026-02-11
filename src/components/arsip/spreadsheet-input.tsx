@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
+import { Label } from "../../components/ui/label";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -26,18 +33,21 @@ import {
   Loader2,
   AlertCircle,
   FileSpreadsheet,
+  Settings,
 } from "lucide-react";
-import { saveBulkArsip } from "../../app/actions/input-arsip";
+import {
+  saveBulkArsip,
+  saveDefaultValues,
+  getLastNomorArsip,
+} from "../../app/actions/input-arsip";
 
 // --- TYPE DEFINITIONS ---
-// Disesuaikan dengan tabel 'schema_config' di DB
 type SchemaConfig = {
   id: number;
   jenisId: number;
-  namaKolom: string;   // Key untuk database
-  labelKolom: string;  // Label untuk UI
-  tipeData: string;    // TEXT, INTEGER, dll
-  isRequired: boolean;
+  namaKolom: string;
+  labelKolom: string;
+  tipeData: string;
   isVisibleList: boolean;
   defaultValue: string | null;
   urutan: number | null;
@@ -48,30 +58,38 @@ type JenisArsipWithSchema = {
   namaJenis: string;
   namaTabel: string;
   prefixKode: string;
-  schemaConfig: SchemaConfig[]; // Array langsung, bukan JSON string
+  nomor_arsip?: number;
+  schemaConfig: SchemaConfig[];
+  defaultValues?: Record<string, string>;
 };
 
 type Props = {
   jenisArsipList: JenisArsipWithSchema[];
 };
 
-// Default widths
 const DEFAULT_WIDTHS: Record<string, number> = {};
-const DEFAULT_DYNAMIC_WIDTH = 200;
+const DEFAULT_DYNAMIC_WIDTH = 180;
 
 export function SpreadsheetInput({ jenisArsipList }: Props) {
   const router = useRouter();
 
   // --- STATE ---
   const [selectedJenisId, setSelectedJenisId] = useState<string>("");
+  const [isLoadingNomor, setIsLoadingNomor] = useState(false);
+  const [selectedJenis, setSelectedJenis] =
+    useState<JenisArsipWithSchema | null>(null);
   const [schema, setSchema] = useState<SchemaConfig[]>([]);
   const [rows, setRows] = useState<any[]>([{}]);
   const [isSaving, setIsSaving] = useState(false);
   const [addCount, setAddCount] = useState<number>(1);
+  const [showDefaults, setShowDefaults] = useState(false);
+  const [defaults, setDefaults] = useState<Record<string, string>>({});
   const userId = 5;
+  const [baseNomor, setBaseNomor] = useState<number>(1);
 
   // --- STATE RESIZE ---
-  const [colWidths, setColWidths] = useState<Record<string, number>>(DEFAULT_WIDTHS);
+  const [colWidths, setColWidths] =
+    useState<Record<string, number>>(DEFAULT_WIDTHS);
 
   // Ref untuk drag logic
   const dragRef = useRef<{
@@ -84,32 +102,87 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
   useEffect(() => {
     if (!selectedJenisId) {
       setSchema([]);
+      setSelectedJenis(null);
       setRows([{}]);
+      setDefaults({});
       return;
     }
 
-    const jenis = jenisArsipList.find(
-      (j) => j.id.toString() === selectedJenisId,
-    );
+    const fetchData = async () => {
+      setIsLoadingNomor(true); // Mulai loading
 
-    if (jenis && jenis.schemaConfig) {
-      // Data sudah berupa array object dari DB, tidak perlu JSON.parse
-      setSchema(jenis.schemaConfig);
+      const jenis = jenisArsipList.find(
+        (j) => j.id.toString() === selectedJenisId,
+      );
 
-      // Reset Widths menggunakan ID unik kolom
-      const newWidths: Record<string, number> = {};
-      jenis.schemaConfig.forEach((col) => {
-        newWidths[col.id.toString()] = DEFAULT_DYNAMIC_WIDTH;
-      });
-      setColWidths(newWidths);
-    } else {
-      setSchema([]);
-    }
+      if (jenis && jenis.schemaConfig) {
+        setSelectedJenis(jenis);
+        setSchema(jenis.schemaConfig);
 
-    setRows([{}]);
+        // Load default values
+        if (jenis.defaultValues) {
+          setDefaults(jenis.defaultValues);
+        }
+
+        // Setup widths (kode lama Anda)
+        const newWidths: Record<string, number> = {};
+        newWidths["prefix"] = 120;
+        newWidths["nomor_arsip"] = 100;
+        jenis.schemaConfig.forEach((col) => {
+          if (col.namaKolom === "uraian" || col.namaKolom === "keterangan") {
+            newWidths[col.id.toString()] = 300;
+          } else {
+            newWidths[col.id.toString()] = DEFAULT_DYNAMIC_WIDTH;
+          }
+        });
+        setColWidths(newWidths);
+
+        // --- INI BAGIAN PENTING: AMBIL NOMOR TERAKHIR DARI DB ---
+        try {
+          const lastNum = await getLastNomorArsip(parseInt(selectedJenisId));
+          const nextNum = lastNum + 1;
+
+          setBaseNomor(nextNum);
+
+          // Reset Rows dengan nomor baru
+          setRows([
+            {
+              ...jenis.defaultValues, // Pastikan default values masuk
+              nomor_arsip: nextNum,
+              prefix: jenis.prefixKode,
+            },
+          ]);
+        } catch (err) {
+          console.error("Gagal ambil nomor", err);
+          // Fallback jika error, pakai 1
+          setBaseNomor(1);
+          setRows([{ prefix: jenis.prefixKode, nomor_arsip: 1 }]);
+        }
+      } else {
+        setSchema([]);
+        setSelectedJenis(null);
+      }
+
+      setIsLoadingNomor(false); // Selesai loading
+    };
+
+    fetchData();
   }, [selectedJenisId, jenisArsipList]);
 
-  // --- LOGIC RESIZING (MOUSE EVENTS) ---
+  // Apply default values to all rows when defaults change
+  useEffect(() => {
+    if (Object.keys(defaults).length > 0) {
+      setRows((prev) =>
+        prev.map((row) => ({
+          ...defaults,
+          ...row,
+          nomor_arsip: row.nomor_arsip,
+        })),
+      );
+    }
+  }, [defaults]);
+
+  // --- LOGIC RESIZING ---
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!dragRef.current.activeColId) return;
     e.preventDefault();
@@ -151,11 +224,29 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
     </div>
   );
 
-  // --- HANDLERS DATA ---
+  // --- HANDLERS ---
   const addMultipleRows = () => {
     const count = addCount > 0 ? addCount : 1;
-    const newRows = Array(count).fill({});
-    setRows((prev) => [...prev, ...newRows]);
+
+    setRows((prev) => {
+      // Ambil nomor terakhir dari baris yang ada di layar
+      // Jika belum ada baris, gunakan (baseNomor - 1)
+      const lastNomorInTable =
+        prev.length > 0
+          ? Number(prev[prev.length - 1].nomor_arsip || 0)
+          : baseNomor - 1;
+
+      // Jika prev.length kosong dan baseNomor belum siap, fallback ke 0
+      const startFrom = lastNomorInTable > 0 ? lastNomorInTable : baseNomor - 1;
+
+      const newRows = Array.from({ length: count }, (_, i) => ({
+        ...defaults,
+        prefix: selectedJenis?.prefixKode,
+        nomor_arsip: startFrom + i + 1,
+      }));
+
+      return [...prev, ...newRows];
+    });
   };
 
   const removeRow = (index: number) => {
@@ -171,24 +262,45 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
     setRows(newRows);
   };
 
+  const handleDefaultChange = (field: string, value: string) => {
+    const newDefaults = { ...defaults, [field]: value };
+    setDefaults(newDefaults);
+  };
+
+  const handleSaveDefaults = async () => {
+    if (!selectedJenisId) return;
+
+    const result = await saveDefaultValues(parseInt(selectedJenisId), defaults);
+    if (result.success) {
+      alert("Default values berhasil disimpan!");
+    } else {
+      alert("Gagal menyimpan default values");
+    }
+  };
+
   const handleSave = async () => {
-    // Validasi minimal 1 kolom terisi untuk baris pertama
-    if (!selectedJenisId || Object.keys(rows[0]).length === 0) {
+    if (!selectedJenisId || rows.length === 0) {
       alert("Mohon lengkapi data.");
       return;
     }
-    
 
     setIsSaving(true);
     try {
       const result = await saveBulkArsip(
         rows,
         parseInt(selectedJenisId),
-        userId
+        userId,
       );
       if (result.success) {
         alert(`Sukses! ${rows.length} data tersimpan.`);
-        setRows([{}]);
+        setRows([
+          {
+            ...defaults,
+            prefix: selectedJenis?.prefixKode,
+            nomor_arsip: baseNomor,
+          },
+        ]);
+
         router.refresh();
       }
     } catch (e: any) {
@@ -197,6 +309,21 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Handler ubah nomor
+  const handleNomorChange = (index: number, value: number) => {
+    if (isNaN(value)) return;
+
+    const newRows = [...rows];
+    newRows[index].nomor_arsip = value;
+
+    // sesuaikan baris berikutnya
+    for (let i = index + 1; i < newRows.length; i++) {
+      newRows[i].nomor_arsip = newRows[i - 1].nomor_arsip + 1;
+    }
+
+    setRows(newRows);
   };
 
   return (
@@ -221,7 +348,75 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
             </SelectContent>
           </Select>
         </div>
+
+        {selectedJenisId && (
+          <Button
+            variant={showDefaults ? "default" : "outline"}
+            onClick={() => setShowDefaults(!showDefaults)}
+            className="gap-2"
+          >
+            <Settings className="w-4 h-4" />
+            {showDefaults ? "Sembunyikan" : "Atur"} Default Values
+          </Button>
+        )}
       </div>
+
+      {/* CARD DEFAULT VALUES */}
+      {selectedJenisId && showDefaults && (
+        <Card className="border-blue-200 bg-blue-50/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Settings className="w-5 h-5 text-blue-600" />
+              Default Values - Isi Otomatis untuk Data yang Sama
+            </CardTitle>
+            <p className="text-sm text-slate-600">
+              Kolom yang diisi di sini akan otomatis terisi pada setiap baris
+              input baru
+            </p>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Prefix */}
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-slate-600">
+                Prefix
+              </Label>
+              <Input
+                value={defaults["prefix"] || selectedJenis?.prefixKode || ""}
+                onChange={(e) =>
+                  handleDefaultChange("prefix", e.target.value.toUpperCase())
+                }
+                className="uppercase font-mono"
+              />
+            </div>
+
+            {/* Schema columns */}
+            {schema.map((col) => (
+              <div key={col.id} className="space-y-1">
+                <Label className="text-xs font-semibold text-slate-600">
+                  {col.labelKolom}
+                </Label>
+                <Input
+                  type={col.tipeData === "INTEGER" ? "number" : "text"}
+                  value={defaults[col.namaKolom] || ""}
+                  onChange={(e) =>
+                    handleDefaultChange(col.namaKolom, e.target.value)
+                  }
+                />
+              </div>
+            ))}
+
+            <div className="md:col-span-2 lg:col-span-3 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDefaults({})}>
+                Reset
+              </Button>
+              <Button onClick={handleSaveDefaults} className="bg-blue-600">
+                <Save className="w-4 h-4 mr-2" />
+                Simpan Default
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {selectedJenisId ? (
         <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden flex flex-col">
@@ -231,24 +426,45 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
               style={{ width: "max-content" }}
             >
               <TableHeader>
-                {/* BARIS 1: GROUP HEADER (OPSIONAL - DISEDERHANAKAN) */}
                 <TableRow className="bg-slate-50 border-b border-slate-200">
-                  <TableHead
-                    rowSpan={2}
-                    className="w-[50px] text-center border-r font-medium text-slate-600 bg-slate-100"
-                  >
+                  <TableHead className="w-[50px] text-center border-r font-medium text-slate-600 bg-slate-100">
                     No
                   </TableHead>
-                  <TableHead 
-                    colSpan={schema.length} 
-                    className="text-center font-semibold text-slate-700 bg-slate-100 border-b border-slate-200 py-2"
-                  >
-                    Input Data Arsip
-                  </TableHead>
-                </TableRow>
 
-                {/* BARIS 2: LABEL KOLOM DINAMIS */}
-                <TableRow className="bg-white border-b border-slate-200 shadow-sm">
+                  {/* Prefix */}
+                  <TableHead
+                    className="text-center font-semibold text-slate-700 bg-green-50 border-r border-slate-200 py-2 relative"
+                    style={{
+                      width: colWidths["prefix"],
+                      minWidth: colWidths["prefix"],
+                      maxWidth: colWidths["prefix"],
+                    }}
+                  >
+                    <div className="flex items-center justify-center">
+                      Prefix
+                    </div>
+                    <Resizer colId="prefix" />
+                  </TableHead>
+
+                  {/* Nomor Arsip */}
+                  <TableHead
+                    className="text-center font-semibold text-slate-700 bg-blue-50 border-r border-slate-200 py-2 relative"
+                    style={{
+                      width: colWidths["nomor_arsip"],
+                      minWidth: colWidths["nomor_arsip"],
+                      maxWidth: colWidths["nomor_arsip"],
+                    }}
+                  >
+                    <div className="flex flex-col items-center gap-1">
+                      <span>Nomor Arsip</span>
+                      <span className="text-[10px] text-slate-500 font-normal">
+                        (Auto)
+                      </span>
+                    </div>
+                    <Resizer colId="nomor_arsip" />
+                  </TableHead>
+
+                  {/* Dynamic columns */}
                   {schema.map((col) => (
                     <TableHead
                       key={col.id}
@@ -262,14 +478,14 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
                       <div className="truncate w-full" title={col.labelKolom}>
                         {col.labelKolom}
                       </div>
-                      {col.isRequired && (
-                        <span className="text-red-400 ml-0.5 absolute top-1 right-2 text-[10px]">
-                          *
-                        </span>
-                      )}
                       <Resizer colId={col.id.toString()} />
                     </TableHead>
                   ))}
+
+                  {/* Aksi - FIX: Tambahkan TableHead untuk header */}
+                  <TableHead className="w-[60px] text-center border-l font-medium text-slate-600 bg-slate-100">
+                    Aksi
+                  </TableHead>
                 </TableRow>
               </TableHeader>
 
@@ -282,7 +498,36 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
                     <TableCell className="text-center text-slate-400 font-mono text-xs border-r border-slate-100 bg-slate-50/30">
                       {index + 1}
                     </TableCell>
+                    {/* Prefix */}
+                    <TableCell className="p-1 border-r border-green-100 bg-green-50/30">
+                      <Input
+                        type="text"
+                        className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-green-500 h-9 rounded-sm bg-transparent text-slate-700 w-full font-mono uppercase text-center font-semibold"
+                        value={row["prefix"] || ""}
+                        onChange={(e) =>
+                          handleInputChange(
+                            index,
+                            "prefix",
+                            e.target.value.toUpperCase(),
+                          )
+                        }
+                        placeholder={selectedJenis?.prefixKode || "PREFIX"}
+                      />
+                    </TableCell>
 
+                    {/* Nomor Arsip */}
+                    <TableCell className="p-1 border-r border-green-100 bg-green-50/30">
+                      <Input
+                        type="number"
+                        className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-green-500 h-9 rounded-sm bg-transparent text-slate-700 w-full font-mono text-center font-semibold"
+                        value={row["nomor_arsip"] || ""}
+                        onChange={(e) =>
+                          handleNomorChange(index, Number(e.target.value))
+                        }
+                        placeholder={baseNomor.toString()}
+                      />
+                    </TableCell>
+                    {/* Dynamic columns */}
                     {schema.map((col) => (
                       <TableCell
                         key={col.id}
@@ -297,17 +542,19 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
                                 : "text"
                           }
                           className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-blue-500 h-9 rounded-sm bg-transparent text-slate-700 w-full"
-                          // Gunakan 'namaKolom' sebagai key data
                           value={row[col.namaKolom] || ""}
                           onChange={(e) =>
-                            handleInputChange(index, col.namaKolom, e.target.value)
+                            handleInputChange(
+                              index,
+                              col.namaKolom,
+                              e.target.value,
+                            )
                           }
-                          required={col.isRequired}
                         />
                       </TableCell>
                     ))}
-
-                    <TableCell className="text-center p-0 w-[50px]">
+                    {/* Aksi */}
+                    <TableCell className="text-center p-0 w-[60px]">
                       <div className="flex justify-center opacity-100 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => removeRow(index)}
