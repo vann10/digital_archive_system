@@ -110,20 +110,20 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
   }
 
   return (
-    <div className="space-y-5 h-auto flex flex-col animate-in fade-in duration-500">
-      {/* 1. HEADER SECTION */}
-      <div className="flex flex-col md:flex-row justify-between md:items-center gap-2 shrink-0">
+    <div className="space-y-4 zoom-list-arsip">
+      {/* 1. HEADER SECTION - STATIC */}
+      <div className="flex flex-col md:flex-row justify-between md:items-center gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
             Daftar Arsip
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-xs text-slate-500 mt-0.5">
             Pusat data seluruh arsip digital Dinas Sosial.
           </p>
         </div>
         <Button
           asChild
-          className="bg-blue-600 hover:bg-blue-700 shadow-sm transition-all rounded-lg"
+          className="bg-blue-600 hover:bg-blue-700 shadow-sm transition-all rounded-lg h-9 text-sm"
         >
           <Link href="/arsip/input">
             <Plus className="mr-2 h-4 w-4" /> Input Arsip Baru
@@ -131,183 +131,188 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
         </Button>
       </div>
 
-      {/* 2. MAIN CARD CONTENT */}
-      <Card className="border-red-600 shadow-sm bg-slate flex flex-col flex-1 overflow-hidden rounded-b-2xl h-96">
-        {/* TOOLBAR FILTER */}
-        <div className="px-4 pb-4 pt-2 border-b border-slate-100 bg-white flex flex-col md:flex-row gap-4 items-center justify-between">
-          <form
-            action={handleSearch}
-            className="flex flex-col md:flex-row w-full gap-3 md:gap-0 md:space-x-4"
-          >
-            {/* Search Input */}
-            <div className="relative flex-1 group w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-              <Input
-                name="q"
-                placeholder="Cari berdasarkan Judul atau Nomor..."
-                defaultValue={search}
-                className="pl-9 border-slate-200 focus:border-blue-500 focus:ring-blue-500 h-10 rounded-lg bg-slate-50/50 focus:bg-white transition-all w-full"
-              />
-            </div>
-
-            {/* Filter Group Wrapper */}
-            <div className="flex flex-col md:flex-row gap-3 md:items-center w-full md:w-auto">
-              {/* Filter Jenis */}
-              <div className="w-full md:w-56 shrink-0">
-                <Select name="jenis" defaultValue={jenisId || "all"}>
-                  <SelectTrigger className="border-slate-200 h-10 w-full rounded-lg bg-slate-50/50 focus:bg-white focus:ring-blue-500 transition-all overflow-hidden">
-                    <div className="flex items-center gap-2 text-slate-600 w-full min-w-0">
-                      <Folder className="w-4 h-4 text-blue-500 shrink-0" />
-                      <span className="flex-1 truncate" title="Jenis Arsip">
-                        <SelectValue placeholder="Semua Jenis" />
-                      </span>
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent
-                    position="popper"
-                    sideOffset={5}
-                    className="rounded-xl border-slate-200 shadow-xl p-1 animate-in zoom-in-95 duration-200"
-                  >
-                    <SelectItem
-                      value="all"
-                      className="h-10 rounded-lg cursor-pointer focus:bg-slate-100 text-slate-600 focus:text-slate-900 py-2.5"
-                    >
-                      <span className="font-medium">Semua Jenis Arsip</span>
-                    </SelectItem>
-                    {jenisOptions.map((j) => (
-                      <SelectItem
-                        key={j.id}
-                        value={j.id.toString()}
-                        className="rounded-lg cursor-pointer focus:bg-blue-50 text-slate-600 focus:text-blue-700 py-2.5 mt-1"
-                      >
-                        {j.namaJenis}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+      {/* 2. MAIN CARD WITH FIXED HEIGHT */}
+      <Card className="border-slate-200 shadow-sm bg-white rounded-2xl h-dvh">
+        <div className="flex flex-col h-full m-2">
+          
+          {/* TOOLBAR FILTER - STATIC/FIXED */}
+          <div className="px-4 py-3 border-b border-slate-100 bg-white shrink-0">
+            <form
+              action={handleSearch}
+              className="flex flex-col md:flex-row w-full gap-3 md:gap-0 md:space-x-3"
+            >
+              {/* Search Input */}
+              <div className="relative flex-1 group w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                <Input
+                  name="q"
+                  placeholder="Cari berdasarkan Judul atau Nomor..."
+                  defaultValue={search}
+                  className="pl-9 border-slate-200 focus:border-blue-500 focus:ring-blue-500 h-9 text-sm rounded-lg bg-slate-50/50 focus:bg-white transition-all w-full"
+                />
               </div>
 
-              {/* Filter Tahun */}
-              <div className="w-full md:w-40">
-                <Select name="tahun" defaultValue={tahun || "all"}>
-                  <SelectTrigger className="border-slate-200 h-10 w-full rounded-lg bg-slate-50/50 focus:bg-white focus:ring-blue-500 transition-all overflow-hidden">
-                    <div className="flex items-center gap-2 text-slate-600 w-full min-w-0">
-                      <Calendar className="w-4 h-4 text-orange-500 shrink-0" />
-                      <SelectValue placeholder="Semua Tahun" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent
-                    position="popper"
-                    sideOffset={5}
-                    className="rounded-xl border-slate-200 shadow-xl p-1 max-h-[300px]"
-                  >
-                    <SelectItem
-                      value="all"
-                      className="rounded-lg cursor-pointer py-2.5 font-medium"
+              {/* Filter Group Wrapper */}
+              <div className="flex flex-col md:flex-row gap-2 md:items-center w-full md:w-auto">
+                {/* Filter Jenis */}
+                <div className="w-full md:w-52 shrink-0">
+                  <Select name="jenis" defaultValue={jenisId || "all"}>
+                    <SelectTrigger className="border-slate-200 h-9 w-full text-sm rounded-lg bg-slate-50/50 focus:bg-white focus:ring-blue-500 transition-all overflow-hidden">
+                      <div className="flex items-center gap-2 text-slate-600 w-full min-w-0">
+                        <Folder className="w-4 h-4 text-blue-500 shrink-0" />
+                        <span className="flex-1 truncate text-sm" title="Jenis Arsip">
+                          <SelectValue placeholder="Semua Jenis" />
+                        </span>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent
+                      position="popper"
+                      sideOffset={5}
+                      className="rounded-xl border-slate-200 shadow-xl p-1 animate-in zoom-in-95 duration-200"
                     >
-                      Semua Tahun
-                    </SelectItem>
-                    {filterYears.map((y) => (
                       <SelectItem
-                        key={y}
-                        value={y.toString()}
-                        className="rounded-lg cursor-pointer focus:bg-orange-50 focus:text-orange-700 py-2 mt-1"
+                        value="all"
+                        className="h-9 text-sm rounded-lg cursor-pointer focus:bg-slate-100 text-slate-600 focus:text-slate-900 py-2"
                       >
-                        {y}
+                        <span className="font-medium">Semua Jenis Arsip</span>
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                      {jenisOptions.map((j) => (
+                        <SelectItem
+                          key={j.id}
+                          value={j.id.toString()}
+                          className="rounded-lg text-sm cursor-pointer focus:bg-blue-50 text-slate-600 focus:text-blue-700 py-2 mt-1"
+                        >
+                          {j.namaJenis}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-2">
-                <Button
-                  type="submit"
-                  className="bg-slate-900 hover:bg-slate-800 hover:cursor-pointer text-white h-10 px-6 rounded-lg shadow-sm flex-1 md:flex-none"
-                >
-                  Cari
-                </Button>
+                {/* Filter Tahun */}
+                <div className="w-full md:w-36">
+                  <Select name="tahun" defaultValue={tahun || "all"}>
+                    <SelectTrigger className="border-slate-200 h-9 w-full text-sm rounded-lg bg-slate-50/50 focus:bg-white focus:ring-blue-500 transition-all overflow-hidden">
+                      <div className="flex items-center gap-2 text-slate-600 w-full min-w-0">
+                        <Calendar className="w-4 h-4 text-orange-500 shrink-0" />
+                        <SelectValue placeholder="Semua Tahun" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent
+                      position="popper"
+                      sideOffset={5}
+                      className="rounded-xl border-slate-200 shadow-xl p-1 max-h-[300px]"
+                    >
+                      <SelectItem
+                        value="all"
+                        className="rounded-lg cursor-pointer py-2 text-sm font-medium"
+                      >
+                        Semua Tahun
+                      </SelectItem>
+                      {filterYears.map((y) => (
+                        <SelectItem
+                          key={y}
+                          value={y.toString()}
+                          className="rounded-lg cursor-pointer text-sm focus:bg-orange-50 focus:text-orange-700 py-2 mt-1"
+                        >
+                          {y}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                {(search || (jenisId && jenisId !== jenisOptions[0]?.id.toString()) || tahun) && (
+                {/* Action Buttons */}
+                <div className="flex gap-2">
                   <Button
-                    asChild
-                    variant="ghost"
-                    size="icon"
-                    className="text-red-500 hover:text-red-600 hover:bg-red-50 h-10 w-10 rounded-lg shrink-0"
-                    title="Reset Filter"
+                    type="submit"
+                    className="bg-slate-900 hover:bg-slate-800 hover:cursor-pointer text-white h-9 px-5 text-sm rounded-lg shadow-sm flex-1 md:flex-none"
                   >
-                    <Link href="/arsip">
-                      <FilterX className="h-4 w-4" />
-                    </Link>
+                    Cari
                   </Button>
-                )}
+
+                  {(search || (jenisId && jenisId !== jenisOptions[0]?.id.toString()) || tahun) && (
+                    <Button
+                      asChild
+                      variant="ghost"
+                      size="icon"
+                      className="text-red-500 hover:text-red-600 hover:bg-red-50 h-9 w-9 rounded-lg shrink-0"
+                      title="Reset Filter"
+                    >
+                      <Link href="/arsip">
+                        <FilterX className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
-          </form>
-        </div>
-
-        {/* --- TABLE SECTION --- */}
-        <ArsipTable
-          data={data}
-          page={page}
-          itemsPerPage={ITEMS_PER_PAGE}
-          dynamicSchema={dynamicSchema}
-          isJenisSelected={isJenisSelected}
-          onDelete={handleDelete}
-          sortConfig={{ key: sortBy, direction: sortDir }}
-          currentParams={{ page, search, jenisId, tahun }}
-        />
-
-        {/* FOOTER PAGINATION */}
-        <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="text-xs text-slate-500 font-medium">
-            Menampilkan <strong>{data.length}</strong> dari{" "}
-            <strong>{meta.totalItems}</strong> Arsip
+            </form>
           </div>
 
-          <div className="flex -mb-5 py-2 gap-2 items-center">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              asChild={page > 1}
-              className="h-9 px-3 text-xs border-slate-400 hover:bg-gray-500 hover:text-slate-50 rounded-lg transition-all"
-            >
-              {page > 1 ? (
-                <Link
-                  href={`/arsip?page=${page - 1}${search ? `&q=${search}` : ''}${jenisId ? `&jenis=${jenisId}` : ''}${tahun ? `&tahun=${tahun}` : ''}${sortBy ? `&sortBy=${sortBy}&sortDir=${sortDir}` : ''}`}
-                  className="flex items-center gap-1"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" /> Prev
-                </Link>
-              ) : (
-                <span className="flex items-center pr-1 gap-1 text-black font-medium">
-                  <ChevronLeft className="h-3.5 w-3.5" /> Prev
-                </span>
-              )}
-            </Button>
+          {/* TABLE SECTION - SCROLLABLE (flex-1 makes it take remaining space) */}
+          <div className="flex-1 overflow-hidden">
+            <ArsipTable
+              data={data}
+              page={page}
+              itemsPerPage={ITEMS_PER_PAGE}
+              dynamicSchema={dynamicSchema}
+              isJenisSelected={isJenisSelected}
+              onDelete={handleDelete}
+              sortConfig={{ key: sortBy, direction: sortDir }}
+              currentParams={{ page, search, jenisId, tahun }}
+            />
+          </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= meta.totalPages}
-              asChild={page < meta.totalPages}
-              className="h-9 px-3 text-xs border-slate-400 hover:bg-gray-500 hover:text-slate-50 rounded-lg transition-all"
-            >
-              {page < meta.totalPages ? (
-                <Link
-                  href={`/arsip?page=${page + 1}${search ? `&q=${search}` : ''}${jenisId ? `&jenis=${jenisId}` : ''}${tahun ? `&tahun=${tahun}` : ''}${sortBy ? `&sortBy=${sortBy}&sortDir=${sortDir}` : ''}`}
-                  className="flex items-center gap-1"
-                >
-                  Next <ChevronRight className="h-3.5 w-3.5" />
-                </Link>
-              ) : (
-                <span className="flex items-center pl-1 gap-1 text-black font-medium">
-                  Next <ChevronRight className="h-3.5 w-3.5" />
-                </span>
-              )}
-            </Button>
+          {/* FOOTER PAGINATION - STATIC/FIXED */}
+          <div className="px-4 py-2.5 border-t border-slate-200 bg-slate-50 flex flex-col md:flex-row items-center justify-between gap-3 shrink-0">
+            <div className="text-xs text-slate-500 font-medium">
+              Menampilkan <strong>{data.length}</strong> dari{" "}
+              <strong>{meta.totalItems}</strong> Arsip
+            </div>
+
+            <div className="flex gap-2 items-center">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                asChild={page > 1}
+                className="h-8 px-3 text-xs border-slate-400 hover:bg-gray-500 hover:text-slate-50 rounded-lg transition-all"
+              >
+                {page > 1 ? (
+                  <Link
+                    href={`/arsip?page=${page - 1}${search ? `&q=${search}` : ''}${jenisId ? `&jenis=${jenisId}` : ''}${tahun ? `&tahun=${tahun}` : ''}${sortBy ? `&sortBy=${sortBy}&sortDir=${sortDir}` : ''}`}
+                    className="flex items-center gap-1"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" /> Prev
+                  </Link>
+                ) : (
+                  <span className="flex items-center pr-1 gap-1 text-black font-medium">
+                    <ChevronLeft className="h-3.5 w-3.5" /> Prev
+                  </span>
+                )}
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= meta.totalPages}
+                asChild={page < meta.totalPages}
+                className="h-8 px-3 text-xs border-slate-400 hover:bg-gray-500 hover:text-slate-50 rounded-lg transition-all"
+              >
+                {page < meta.totalPages ? (
+                  <Link
+                    href={`/arsip?page=${page + 1}${search ? `&q=${search}` : ''}${jenisId ? `&jenis=${jenisId}` : ''}${tahun ? `&tahun=${tahun}` : ''}${sortBy ? `&sortBy=${sortBy}&sortDir=${sortDir}` : ''}`}
+                    className="flex items-center gap-1"
+                  >
+                    Next <ChevronRight className="h-3.5 w-3.5" />
+                  </Link>
+                ) : (
+                  <span className="flex items-center pl-1 gap-1 text-black font-medium">
+                    Next <ChevronRight className="h-3.5 w-3.5" />
+                  </span>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </Card>

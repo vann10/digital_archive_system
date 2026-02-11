@@ -5,7 +5,7 @@ import { jenisArsip } from "../../db/schema";
 import { eq, sql, asc } from "drizzle-orm"; // Tambahkan 'asc'
 import { revalidatePath } from "next/cache";
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 50;
 
 // ------------------------------------------------------
 // GET LIST ARSIP

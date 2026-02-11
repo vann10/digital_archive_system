@@ -123,3 +123,19 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Zoom-out effect untuk dashboard dan list arsip (Task 2) */
+.zoom-dashboard {
+  transform: scale(0.85);
+  transform-origin: top left;
+  width: 117.65%;
+  margin-bottom: -15%;
+}
+
+/* Zoom-out effect untuk list arsip */
+.zoom-list-arsip {
+  transform: scale(0.85);
+  transform-origin: top left;
+  width: 117.65%;
+  margin-bottom: -10%;
+}

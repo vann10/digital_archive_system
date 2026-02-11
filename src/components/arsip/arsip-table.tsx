@@ -228,7 +228,8 @@ export function ArsipTable({
   };
 
   return (
-    <div className="flex-1 overflow-auto relative border rounded-md shadow-sm bg-white">
+    // CRITICAL: This wrapper must fill the parent and enable scrolling
+    <div className="h-full w-full overflow-auto">
       <Table
         className={cn(
           "w-full text-sm",
@@ -306,7 +307,7 @@ export function ArsipTable({
               >
                 {/* CELL NO */}
                 <TableCell
-                  className="text-center text-slate-500 font-mono text-xs sticky left-0 bg-white group-hover:bg-blue-50/30 group-even:bg-slate-50/50 z-20 border-r border-slate-100"
+                  className="text-center text-slate-500 font-mono text-xs sticky left-0 bg-white group-hover:bg-blue-50 group-even:bg-slate-50 z-20 border-r border-slate-100"
                   style={getWidthStyle("no")}
                 >
                   {(page - 1) * itemsPerPage + index + 1}
@@ -332,7 +333,7 @@ export function ArsipTable({
                 })}
 
                 {/* CELL AKSI */}
-                <TableCell className="text-right py-2 sticky right-0 bg-white group-hover:bg-blue-50/30 group-even:bg-slate-50/50 z-20 border-l border-slate-100 shadow-[inset_10px_0_10px_-10px_rgba(0,0,0,0.05)]">
+                <TableCell className="text-right py-2 sticky right-0 bg-white group-hover:bg-blue-50 group-even:bg-slate-50 z-20 border-l border-slate-100 shadow-[inset_10px_0_10px_-10px_rgba(0,0,0,0.05)]">
                   <div className="flex items-center justify-end gap-1">
                     <ArsipDetailDialog item={item} />
                     <Button
