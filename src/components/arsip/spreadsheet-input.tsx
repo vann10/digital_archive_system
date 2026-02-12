@@ -86,13 +86,14 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
   const [addCount, setAddCount] = useState<number>(1);
   const [showDefaults, setShowDefaults] = useState(false);
   const [defaults, setDefaults] = useState<Record<string, string>>({});
-  const userId = 5;
+  const userId = 5; // Hardcoded sesuai aslinya, sesuaikan jika ada sistem auth
   const [baseNomor, setBaseNomor] = useState<number>(1);
 
   // --- STATE RESIZE ---
   const [colWidths, setColWidths] =
     useState<Record<string, number>>(DEFAULT_WIDTHS);
 
+  // --- REFS ---
   // Ref untuk drag logic
   const dragRef = useRef<{
     activeColId: string | null;
@@ -100,33 +101,47 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
     startWidth: number;
   }>({ activeColId: null, startX: 0, startWidth: 0 });
 
-  // --- EFFECT: Load Schema ---
+  // Ref untuk melacak ID jenis arsip yang terakhir kali di-inisialisasi tabelnya
+  const initializedJenisIdRef = useRef<string | null>(null);
+  // Ref untuk mendeteksi perubahan defaults
+  const prevDefaultsRef = useRef<Record<string, string>>({});
+
+  // --- EFFECT: Load Schema & Mencegah Reset ---
   useEffect(() => {
     if (!selectedJenisId) {
       setSchema([]);
       setSelectedJenis(null);
       setRows([{}]);
       setDefaults({});
+      initializedJenisIdRef.current = null; // Reset ref saat kosong
       return;
     }
 
     const fetchData = async () => {
-      setIsLoadingNomor(true); // Mulai loading
-
       const jenis = jenisArsipList.find(
         (j) => j.id.toString() === selectedJenisId,
       );
 
       if (jenis && jenis.schemaConfig) {
+        // A. SET METADATA (Selalu dilakukan agar schema/defaults update)
         setSelectedJenis(jenis);
         setSchema(jenis.schemaConfig);
 
-        // Load default values
+        // Update default values jika ada dari database
         if (jenis.defaultValues) {
           setDefaults(jenis.defaultValues);
         }
 
-        // Setup widths (kode lama Anda)
+        // B. CEK REF: Jika masih di jenis yang sama, STOP di sini (jangan reset rows)
+        if (initializedJenisIdRef.current === selectedJenisId) {
+          return;
+        }
+
+        // C. INISIALISASI AWAL (Hanya saat pilih jenis arsip BARU)
+        setIsLoadingNomor(true);
+        initializedJenisIdRef.current = selectedJenisId; // Tandai sudah di-init
+
+        // Setup widths
         const newWidths: Record<string, number> = {};
         newWidths["prefix"] = 120;
         newWidths["nomor_arsip"] = 100;
@@ -139,7 +154,7 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
         });
         setColWidths(newWidths);
 
-        // --- INI BAGIAN PENTING: AMBIL NOMOR TERAKHIR DARI DB ---
+        // Ambil nomor terakhir dari DB
         try {
           const lastNum = await getLastNomorArsip(parseInt(selectedJenisId));
           const nextNum = lastNum + 1;
@@ -149,7 +164,7 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
           // Reset Rows dengan nomor baru
           setRows([
             {
-              ...jenis.defaultValues, // Pastikan default values masuk
+              ...jenis.defaultValues,
               nomor_arsip: nextNum,
               prefix: jenis.prefixKode,
             },
@@ -159,40 +174,40 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
           // Fallback jika error, pakai 1
           setBaseNomor(1);
           setRows([{ prefix: jenis.prefixKode, nomor_arsip: 1 }]);
+        } finally {
+          setIsLoadingNomor(false);
         }
       } else {
         setSchema([]);
         setSelectedJenis(null);
       }
-
-      setIsLoadingNomor(false); // Selesai loading
     };
 
     fetchData();
   }, [selectedJenisId, jenisArsipList]);
 
-  // Apply default values only to new rows when defaults change
-  // Existing rows should keep their current values
-  const prevDefaultsRef = useRef<Record<string, string>>({});
-
+  // --- EFFECT: Apply Default Values to Empty Fields ATAU Fields yang sama dengan Old Default ---
   useEffect(() => {
-    // Only apply if defaults actually changed and we have rows
     if (Object.keys(defaults).length > 0 && rows.length > 0) {
-      // Check if defaults actually changed
       const defaultsChanged =
         JSON.stringify(prevDefaultsRef.current) !== JSON.stringify(defaults);
 
       if (defaultsChanged) {
         setRows((prev) =>
           prev.map((row) => {
-            // For each row, only fill empty fields with new defaults
             const updatedRow = { ...row };
             Object.keys(defaults).forEach((key) => {
-              // Only apply default if field is empty or doesn't exist
+              const oldDefault = prevDefaultsRef.current[key];
+              const currentVal = updatedRow[key];
+              
+              // Syarat Update Default ke baris yang sudah ada: 
+              // 1. Kolom masih kosong/belum diisi ATAU
+              // 2. Kolom berisi nilai default yang lama persis (artinya user belum mengetik hal lain)
               if (
-                updatedRow[key] === undefined ||
-                updatedRow[key] === "" ||
-                updatedRow[key] === null
+                currentVal === undefined ||
+                currentVal === "" ||
+                currentVal === null ||
+                (oldDefault !== undefined && currentVal === oldDefault)
               ) {
                 updatedRow[key] = defaults[key];
               }
@@ -200,7 +215,7 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
             return updatedRow;
           }),
         );
-
+        // Simpan referensi default yang baru sebagai "oldDefault" untuk deteksi selanjutnya
         prevDefaultsRef.current = { ...defaults };
       }
     }
@@ -253,14 +268,11 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
     const count = addCount > 0 ? addCount : 1;
 
     setRows((prev) => {
-      // Ambil nomor terakhir dari baris yang ada di layar
-      // Jika belum ada baris, gunakan (baseNomor - 1)
       const lastNomorInTable =
         prev.length > 0
           ? Number(prev[prev.length - 1].nomor_arsip || 0)
           : baseNomor - 1;
 
-      // Jika prev.length kosong dan baseNomor belum siap, fallback ke 0
       const startFrom = lastNomorInTable > 0 ? lastNomorInTable : baseNomor - 1;
 
       const newRows = Array.from({ length: count }, (_, i) => ({
@@ -301,6 +313,7 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
         title: "Berhasil!",
         description: "Default values berhasil disimpan.",
       });
+      // Tidak perlu resfresh() karena revalidatePath akan men-trigger re-render props
     } else {
       toast({
         variant: "destructive",
@@ -333,15 +346,32 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
           title: "Berhasil!",
           description: `${rows.length} data berhasil tersimpan.`,
         });
-        setRows([
-          {
-            ...defaults,
-            prefix: selectedJenis?.prefixKode,
-            nomor_arsip: baseNomor,
-          },
-        ]);
+        
+        // Reset rows untuk batch berikutnya, ambil nomor terbaru
+        try {
+           const nextNum = await getLastNomorArsip(parseInt(selectedJenisId)) + 1;
+           setBaseNomor(nextNum);
+           setRows([
+            {
+              ...defaults,
+              prefix: selectedJenis?.prefixKode,
+              nomor_arsip: nextNum,
+            },
+          ]);
+        } catch(e) {
+           // Fallback soft reset
+           setRows([
+             {
+               ...defaults,
+               prefix: selectedJenis?.prefixKode,
+               nomor_arsip: baseNomor,
+             },
+           ]);
+        }
 
         router.refresh();
+      } else {
+        throw new Error(result.success || "Gagal dari server");
       }
     } catch (e: any) {
       console.error(e);
@@ -362,7 +392,7 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
     const newRows = [...rows];
     newRows[index].nomor_arsip = value;
 
-    // sesuaikan baris berikutnya
+    // sesuaikan baris berikutnya (incremental)
     for (let i = index + 1; i < newRows.length; i++) {
       newRows[i].nomor_arsip = newRows[i - 1].nomor_arsip + 1;
     }
@@ -468,6 +498,7 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
             <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5 text-blue-600" />
               Input Data Arsip
+              {isLoadingNomor && <Loader2 className="w-4 h-4 animate-spin ml-2 text-slate-400" />}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">

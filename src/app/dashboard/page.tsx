@@ -89,7 +89,7 @@ export default async function DashboardPage() {
                   <span className="font-semibold text-xs">Import</span>
                 </div>
                 <p className="text-[10px] text-slate-500 text-left">
-                  Import dari Excel
+                  Import data dari CSV
                 </p>
               </Link>
             </Button>
