@@ -132,7 +132,7 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
       </div>
 
       {/* 2. MAIN CARD WITH FIXED HEIGHT */}
-      <Card className="border-slate-200 shadow-sm bg-white rounded-2xl h-dvh">
+      <Card className="border-slate-200 shadow-sm bg-white rounded-2xl w-full h-dvh">
         <div className="flex flex-col h-full m-2">
           
           {/* TOOLBAR FILTER - STATIC/FIXED */}
@@ -153,7 +153,7 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
               </div>
 
               {/* Filter Group Wrapper */}
-              <div className="flex flex-col md:flex-row gap-2 md:items-center w-full md:w-auto">
+              <div className="flex flex-col md:flex-row gap-2 md:items-center w-auto md:w-auto">
                 {/* Filter Jenis */}
                 <div className="w-full md:w-52 shrink-0">
                   <Select name="jenis" defaultValue={jenisId || "all"}>
@@ -170,12 +170,6 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
                       sideOffset={5}
                       className="rounded-xl border-slate-200 shadow-xl p-1 animate-in zoom-in-95 duration-200"
                     >
-                      <SelectItem
-                        value="all"
-                        className="h-9 text-sm rounded-lg cursor-pointer focus:bg-slate-100 text-slate-600 focus:text-slate-900 py-2"
-                      >
-                        <span className="font-medium">Semua Jenis Arsip</span>
-                      </SelectItem>
                       {jenisOptions.map((j) => (
                         <SelectItem
                           key={j.id}
@@ -190,7 +184,7 @@ export default async function DaftarArsipPage({ searchParams }: Props) {
                 </div>
 
                 {/* Filter Tahun */}
-                <div className="w-full md:w-36">
+                <div>
                   <Select name="tahun" defaultValue={tahun || "all"}>
                     <SelectTrigger className="border-slate-200 h-9 w-full text-sm rounded-lg bg-slate-50/50 focus:bg-white focus:ring-blue-500 transition-all overflow-hidden">
                       <div className="flex items-center gap-2 text-slate-600 w-full min-w-0">

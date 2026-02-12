@@ -169,18 +169,40 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
     fetchData();
   }, [selectedJenisId, jenisArsipList]);
 
-  // Apply default values to all rows when defaults change
+  // Apply default values only to new rows when defaults change
+  // Existing rows should keep their current values
+  const prevDefaultsRef = useRef<Record<string, string>>({});
+
   useEffect(() => {
-    if (Object.keys(defaults).length > 0) {
-      setRows((prev) =>
-        prev.map((row) => ({
-          ...defaults,
-          ...row,
-          nomor_arsip: row.nomor_arsip,
-        })),
-      );
+    // Only apply if defaults actually changed and we have rows
+    if (Object.keys(defaults).length > 0 && rows.length > 0) {
+      // Check if defaults actually changed
+      const defaultsChanged =
+        JSON.stringify(prevDefaultsRef.current) !== JSON.stringify(defaults);
+
+      if (defaultsChanged) {
+        setRows((prev) =>
+          prev.map((row) => {
+            // For each row, only fill empty fields with new defaults
+            const updatedRow = { ...row };
+            Object.keys(defaults).forEach((key) => {
+              // Only apply default if field is empty or doesn't exist
+              if (
+                updatedRow[key] === undefined ||
+                updatedRow[key] === "" ||
+                updatedRow[key] === null
+              ) {
+                updatedRow[key] = defaults[key];
+              }
+            });
+            return updatedRow;
+          }),
+        );
+
+        prevDefaultsRef.current = { ...defaults };
+      }
     }
-  }, [defaults]);
+  }, [defaults, rows.length]);
 
   // --- LOGIC RESIZING ---
   const handleMouseMove = useCallback((e: MouseEvent) => {
@@ -419,200 +441,206 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
       )}
 
       {selectedJenisId ? (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden flex flex-col">
-          <div className="overflow-x-auto relative">
-            <Table
-              className="min-w-full table-fixed border-collapse"
-              style={{ width: "max-content" }}
-            >
-              <TableHeader>
-                <TableRow className="bg-slate-50 border-b border-slate-200">
-                  <TableHead className="w-[50px] text-center border-r font-medium text-slate-600 bg-slate-100">
-                    No
-                  </TableHead>
+        <Card className="overflow-hidden">
+          <CardHeader className="bg-slate-50/50 border-b">
+            <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5 text-blue-600" />
+              Input Data Arsip
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {/* Scrollable Table Container */}
+            <div className="overflow-auto max-h-150">
+              <Table
+                className="min-w-full table-fixed border-collapse"
+                style={{ width: "max-content" }}
+              >
+                <TableHeader className="sticky top-0 z-10">
+                  <TableRow className="bg-slate-50 border-b border-slate-200">
+                    <TableHead className="w-12 text-center border-r font-medium text-slate-600 bg-slate-100 sticky left-0 z-30">
+                      No
+                    </TableHead>
 
-                  {/* Prefix */}
-                  <TableHead
-                    className="text-center font-semibold text-slate-700 bg-green-50 border-r border-slate-200 py-2 relative"
-                    style={{
-                      width: colWidths["prefix"],
-                      minWidth: colWidths["prefix"],
-                      maxWidth: colWidths["prefix"],
-                    }}
-                  >
-                    <div className="flex items-center justify-center">
-                      Prefix
-                    </div>
-                    <Resizer colId="prefix" />
-                  </TableHead>
-
-                  {/* Nomor Arsip */}
-                  <TableHead
-                    className="text-center font-semibold text-slate-700 bg-blue-50 border-r border-slate-200 py-2 relative"
-                    style={{
-                      width: colWidths["nomor_arsip"],
-                      minWidth: colWidths["nomor_arsip"],
-                      maxWidth: colWidths["nomor_arsip"],
-                    }}
-                  >
-                    <div className="flex flex-col items-center gap-1">
-                      <span>Nomor Arsip</span>
-                      <span className="text-[10px] text-slate-500 font-normal">
-                        (Auto)
-                      </span>
-                    </div>
-                    <Resizer colId="nomor_arsip" />
-                  </TableHead>
-
-                  {/* Dynamic columns */}
-                  {schema.map((col) => (
+                    {/* Prefix */}
                     <TableHead
-                      key={col.id}
-                      className="relative text-slate-600 font-medium border-r border-slate-100 bg-slate-50/30 align-middle px-2 select-none"
+                      className="text-center font-semibold text-slate-700 bg-green-50 border-r border-slate-200 py-2 relative"
                       style={{
-                        width: colWidths[col.id.toString()],
-                        minWidth: colWidths[col.id.toString()],
-                        maxWidth: colWidths[col.id.toString()],
+                        width: colWidths["prefix"],
+                        minWidth: colWidths["prefix"],
+                        maxWidth: colWidths["prefix"],
                       }}
                     >
-                      <div className="truncate w-full" title={col.labelKolom}>
-                        {col.labelKolom}
+                      <div className="flex items-center justify-center">
+                        Prefix
                       </div>
-                      <Resizer colId={col.id.toString()} />
+                      <Resizer colId="prefix" />
                     </TableHead>
-                  ))}
-
-                  {/* Aksi - FIX: Tambahkan TableHead untuk header */}
-                  <TableHead className="w-[60px] text-center border-l font-medium text-slate-600 bg-slate-100">
-                    Aksi
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-
-              <TableBody>
-                {rows.map((row, index) => (
-                  <TableRow
-                    key={index}
-                    className="group hover:bg-slate-50 transition-colors"
-                  >
-                    <TableCell className="text-center text-slate-400 font-mono text-xs border-r border-slate-100 bg-slate-50/30">
-                      {index + 1}
-                    </TableCell>
-                    {/* Prefix */}
-                    <TableCell className="p-1 border-r border-green-100 bg-green-50/30">
-                      <Input
-                        type="text"
-                        className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-green-500 h-9 rounded-sm bg-transparent text-slate-700 w-full font-mono uppercase text-center font-semibold"
-                        value={row["prefix"] || ""}
-                        onChange={(e) =>
-                          handleInputChange(
-                            index,
-                            "prefix",
-                            e.target.value.toUpperCase(),
-                          )
-                        }
-                        placeholder={selectedJenis?.prefixKode || "PREFIX"}
-                      />
-                    </TableCell>
 
                     {/* Nomor Arsip */}
-                    <TableCell className="p-1 border-r border-green-100 bg-green-50/30">
-                      <Input
-                        type="number"
-                        className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-green-500 h-9 rounded-sm bg-transparent text-slate-700 w-full font-mono text-center font-semibold"
-                        value={row["nomor_arsip"] || ""}
-                        onChange={(e) =>
-                          handleNomorChange(index, Number(e.target.value))
-                        }
-                        placeholder={baseNomor.toString()}
-                      />
-                    </TableCell>
+                    <TableHead
+                      className="text-center font-semibold text-slate-700 bg-slate-50 border-r border-slate-200 py-2 relative"
+                      style={{
+                        width: colWidths["nomor_arsip"],
+                        minWidth: colWidths["nomor_arsip"],
+                        maxWidth: colWidths["nomor_arsip"],
+                      }}
+                    >
+                      <div className="flex flex-col items-center gap-1">
+                        <span>Nomor Arsip</span>
+                      </div>
+                      <Resizer colId="nomor_arsip" />
+                    </TableHead>
+
                     {/* Dynamic columns */}
                     {schema.map((col) => (
-                      <TableCell
+                      <TableHead
                         key={col.id}
-                        className="p-1 border-r border-slate-100 overflow-hidden"
+                        className="relative text-slate-600 font-medium border-r border-slate-100 bg-slate-50/30 align-middle px-2 select-none"
+                        style={{
+                          width: colWidths[col.id.toString()],
+                          minWidth: colWidths[col.id.toString()],
+                          maxWidth: colWidths[col.id.toString()],
+                        }}
                       >
+                        <div className="truncate w-full" title={col.labelKolom}>
+                          {col.labelKolom}
+                        </div>
+                        <Resizer colId={col.id.toString()} />
+                      </TableHead>
+                    ))}
+
+                    {/* Aksi */}
+                    <TableHead className="w-[60px] text-center border-l font-medium text-slate-600 bg-slate-100 sticky right-0 z-20">
+                      Aksi
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+
+                <TableBody>
+                  {rows.map((row, index) => (
+                    <TableRow
+                      key={index}
+                      className="group hover:bg-slate-50 transition-colors"
+                    >
+                      <TableCell className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-green-500 h-9 rounded-sm bg-transparent text-slate-700 w-full font-mono text-center font-semibold">
+                        {index + 1}
+                      </TableCell>
+                      {/* Prefix */}
+                      <TableCell className="p-1 border-r border-green-100 bg-slate-50">
                         <Input
-                          type={
-                            col.tipeData === "DATE"
-                              ? "date"
-                              : col.tipeData === "INTEGER"
-                                ? "number"
-                                : "text"
-                          }
-                          className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-blue-500 h-9 rounded-sm bg-transparent text-slate-700 w-full"
-                          value={row[col.namaKolom] || ""}
+                          type="text"
+                          className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-green-500 h-9 rounded-sm bg-transparent text-slate-700 w-full font-mono uppercase text-center font-semibold"
+                          value={row["prefix"] || ""}
                           onChange={(e) =>
                             handleInputChange(
                               index,
-                              col.namaKolom,
-                              e.target.value,
+                              "prefix",
+                              e.target.value.toUpperCase(),
                             )
                           }
+                          placeholder={selectedJenis?.prefixKode || "PREFIX"}
                         />
                       </TableCell>
-                    ))}
-                    {/* Aksi */}
-                    <TableCell className="text-center p-0 w-[60px]">
-                      <div className="flex justify-center opacity-100 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => removeRow(index)}
-                          className="p-2 text-red-500 bg-slate-100 hover:text-white hover:bg-red-500 rounded-md"
-                          disabled={rows.length <= 1}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
 
-          {/* FOOTER */}
-          <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="text-xs text-slate-500">
-              Total: {rows.length} baris data akan disimpan.
+                      {/* Nomor Arsip */}
+                      <TableCell className="p-1 border-r border-green-100 bg-slate-50">
+                        <Input
+                          type="number"
+                          className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-green-500 h-9 rounded-sm bg-transparent text-slate-700 w-full font-mono text-center font-semibold"
+                          value={row["nomor_arsip"] || ""}
+                          onChange={(e) =>
+                            handleNomorChange(index, Number(e.target.value))
+                          }
+                          placeholder={baseNomor.toString()}
+                        />
+                      </TableCell>
+                      {/* Dynamic columns */}
+                      {schema.map((col) => (
+                        <TableCell
+                          key={col.id}
+                          className="p-1 border-r border-slate-100 overflow-hidden"
+                        >
+                          <Input
+                            type={
+                              col.tipeData === "DATE"
+                                ? "date"
+                                : col.tipeData === "INTEGER"
+                                  ? "number"
+                                  : "text"
+                            }
+                            className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-blue-500 h-9 rounded-sm bg-transparent text-slate-700 w-full"
+                            value={row[col.namaKolom] || ""}
+                            onChange={(e) =>
+                              handleInputChange(
+                                index,
+                                col.namaKolom,
+                                e.target.value,
+                              )
+                            }
+                          />
+                        </TableCell>
+                      ))}
+                      {/* Aksi */}
+                      <TableCell className="text-center p-0 w-[60px] sticky right-0 z-10 bg-white">
+                        <div className="flex justify-center opacity-100 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => removeRow(index)}
+                            className="p-2 text-red-500 bg-slate-100 hover:text-white hover:bg-red-500 rounded-md transition-colors"
+                            disabled={rows.length <= 1}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
 
-            <div className="flex gap-3 w-full md:w-auto items-center">
-              <div className="flex items-center gap-2 bg-white p-1 rounded-md border border-slate-200">
-                <Input
-                  type="number"
-                  min={1}
-                  max={100}
-                  className="w-16 h-8 text-center border-none focus-visible:ring-0 px-1"
-                  value={addCount}
-                  onChange={(e) => setAddCount(parseInt(e.target.value) || 1)}
-                />
-                <Button
-                  variant="secondary"
-                  onClick={addMultipleRows}
-                  className="h-8 px-3 text-xs gap-1 border-l rounded-l-none"
-                >
-                  <Plus size={14} /> Tambah
-                </Button>
+            {/* FOOTER */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className="text-xs text-slate-500">
+                Total: {rows.length} baris data akan disimpan.
               </div>
 
-              <div className="w-px h-8 bg-slate-300 mx-1 hidden md:block"></div>
+              <div className="flex gap-3 w-full md:w-auto items-center">
+                <div className="flex items-center gap-2 bg-white p-1 rounded-md border border-slate-200">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={100}
+                    className="w-16 h-8 text-center border-none focus-visible:ring-0 px-1"
+                    value={addCount}
+                    onChange={(e) => setAddCount(parseInt(e.target.value) || 1)}
+                  />
+                  <Button
+                    variant="secondary"
+                    onClick={addMultipleRows}
+                    className="h-8 px-3 text-xs gap-1 border-l rounded-l-none"
+                  >
+                    <Plus size={14} /> Tambah
+                  </Button>
+                </div>
 
-              <Button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="flex-1 md:flex-none gap-2 min-w-[140px] bg-blue-600"
-              >
-                {isSaving ? (
-                  <Loader2 className="animate-spin" size={16} />
-                ) : (
-                  <Save size={16} />
-                )}
-                Simpan Semua
-              </Button>
+                <div className="w-px h-8 bg-slate-300 mx-1 hidden md:block"></div>
+
+                <Button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex-1 md:flex-none gap-2 min-w-[140px] bg-blue-600"
+                >
+                  {isSaving ? (
+                    <Loader2 className="animate-spin" size={16} />
+                  ) : (
+                    <Save size={16} />
+                  )}
+                  Simpan Semua
+                </Button>
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       ) : null}
 
       {!selectedJenisId && (

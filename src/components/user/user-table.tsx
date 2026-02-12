@@ -84,23 +84,35 @@ export default function UserTableClient({ initialUsers }: { initialUsers: User[]
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Header Section */}
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold tracking-tight">Daftar Pengguna</h2>
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Daftar Pengguna</h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Kelola akses dan izin pengguna sistem
+          </p>
+        </div>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
-            <Button>
-              <UserPlus className="mr-2 h-4 w-4" /> Tambah User
+            <Button size="default" className="gap-2">
+              <UserPlus className="h-4 w-4" /> Tambah User
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[480px]">
             <DialogHeader>
               <DialogTitle>Tambah Pengguna Baru</DialogTitle>
             </DialogHeader>
-            <form action={handleCreate} className="space-y-4">
+            <form action={handleCreate} className="space-y-5">
               <div className="space-y-2">
                 <Label htmlFor="username">Username</Label>
-                <Input id="username" name="username" placeholder="johndoe" required />
+                <Input 
+                  id="username" 
+                  name="username" 
+                  placeholder="Masukkan username" 
+                  required 
+                  className="h-10"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
@@ -108,14 +120,15 @@ export default function UserTableClient({ initialUsers }: { initialUsers: User[]
                   id="password"
                   name="password"
                   type="text"
-                  placeholder="Secret123"
+                  placeholder="Masukkan password"
                   required
+                  className="h-10"
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
                 <Select name="role" defaultValue="staff" required>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-10">
                     <SelectValue placeholder="Pilih role" />
                   </SelectTrigger>
                   <SelectContent>
@@ -125,7 +138,14 @@ export default function UserTableClient({ initialUsers }: { initialUsers: User[]
                   </SelectContent>
                 </Select>
               </div>
-              <DialogFooter>
+              <DialogFooter className="pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsOpen(false)}
+                >
+                  Batal
+                </Button>
                 <SubmitButton />
               </DialogFooter>
             </form>
@@ -133,66 +153,77 @@ export default function UserTableClient({ initialUsers }: { initialUsers: User[]
         </Dialog>
       </div>
 
-      <div className="border rounded-md">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[50px]">No</TableHead>
-              <TableHead>Username</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Password</TableHead>
-              <TableHead className="text-right">Aksi</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {initialUsers.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                  Belum ada user yang ditambahkan.
-                </TableCell>
+      {/* Table Card */}
+      <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50/50">
+                <TableHead className="w-16 font-semibold text-slate-700">No</TableHead>
+                <TableHead className="font-semibold text-slate-700">Username</TableHead>
+                <TableHead className="font-semibold text-slate-700">Role</TableHead>
+                <TableHead className="font-semibold text-slate-700">Password</TableHead>
+                <TableHead className="text-right font-semibold text-slate-700 w-24">Aksi</TableHead>
               </TableRow>
-            ) : (
-              initialUsers.map((user, index) => (
-                <TableRow key={user.id}>
-                  <TableCell>{index + 1}</TableCell>
-                  <TableCell className="font-medium flex items-center gap-2">
-                     <Shield className="h-4 w-4 text-muted-foreground" />
-                     {user.username}
+            </TableHeader>
+            <TableBody>
+              {initialUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center h-32 text-slate-500">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Shield className="h-10 w-10 text-slate-300" />
+                      <p className="text-sm">Belum ada pengguna yang ditambahkan.</p>
+                    </div>
                   </TableCell>
-                  <TableCell>{getRoleBadge(user.role)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm">
-                        {showPassword[user.id] ? user.password : "••••••••"}
-                      </span>
+                </TableRow>
+              ) : (
+                initialUsers.map((user, index) => (
+                  <TableRow key={user.id} className="hover:bg-slate-50/50 transition-colors">
+                    <TableCell className="font-medium text-slate-500">{index + 1}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                          <Shield className="h-4 w-4 text-white" />
+                        </div>
+                        <span className="font-medium text-slate-900">{user.username}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{getRoleBadge(user.role)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2.5">
+                        <span className="font-mono text-sm text-slate-700 bg-slate-50 px-2.5 py-1 rounded border border-slate-200">
+                          {showPassword[user.id] ? user.password : "••••••••"}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-slate-100"
+                          onClick={() => togglePassword(user.id)}
+                        >
+                          {showPassword[user.id] ? (
+                            <EyeOff className="h-4 w-4 text-slate-500" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-slate-500" />
+                          )}
+                        </Button>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6"
-                        onClick={() => togglePassword(user.id)}
+                        className="h-9 w-9 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => handleDelete(user.id)}
                       >
-                        {showPassword[user.id] ? (
-                          <EyeOff className="h-3 w-3" />
-                        ) : (
-                          <Eye className="h-3 w-3" />
-                        )}
+                        <Trash2 className="h-4 w-4" />
                       </Button>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDelete(user.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );
