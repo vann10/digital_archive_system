@@ -40,6 +40,7 @@ import {
   saveDefaultValues,
   getLastNomorArsip,
 } from "../../app/actions/input-arsip";
+import { useToast } from "@/src/hooks/use-toast";
 
 // --- TYPE DEFINITIONS ---
 type SchemaConfig = {
@@ -72,6 +73,7 @@ const DEFAULT_DYNAMIC_WIDTH = 180;
 
 export function SpreadsheetInput({ jenisArsipList }: Props) {
   const router = useRouter();
+  const { toast } = useToast();
 
   // --- STATE ---
   const [selectedJenisId, setSelectedJenisId] = useState<string>("");
@@ -294,15 +296,27 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
 
     const result = await saveDefaultValues(parseInt(selectedJenisId), defaults);
     if (result.success) {
-      alert("Default values berhasil disimpan!");
+      toast({
+        variant: "success",
+        title: "Berhasil!",
+        description: "Default values berhasil disimpan.",
+      });
     } else {
-      alert("Gagal menyimpan default values");
+      toast({
+        variant: "destructive",
+        title: "Gagal",
+        description: "Gagal menyimpan default values.",
+      });
     }
   };
 
   const handleSave = async () => {
     if (!selectedJenisId || rows.length === 0) {
-      alert("Mohon lengkapi data.");
+      toast({
+        variant: "destructive",
+        title: "Data Tidak Lengkap",
+        description: "Mohon lengkapi data sebelum menyimpan.",
+      });
       return;
     }
 
@@ -314,7 +328,11 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
         userId,
       );
       if (result.success) {
-        alert(`Sukses! ${rows.length} data tersimpan.`);
+        toast({
+          variant: "success",
+          title: "Berhasil!",
+          description: `${rows.length} data berhasil tersimpan.`,
+        });
         setRows([
           {
             ...defaults,
@@ -327,7 +345,11 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
       }
     } catch (e: any) {
       console.error(e);
-      alert("Gagal menyimpan: " + e.message);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Gagal menyimpan: " + e.message,
+      });
     } finally {
       setIsSaving(false);
     }

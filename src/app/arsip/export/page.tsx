@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../../components/ui/select";
-import { Button } from "../../../components/ui/button"; // Pastikan import Button
+import { Button } from "../../../components/ui/button";
 import {
   Download,
   Loader2,
@@ -39,6 +39,7 @@ import {
   getJenisArsipList,
 } from "../../../app/actions/import-export-arsip";
 import * as XLSX from "xlsx";
+import { useToast } from "@/src/hooks/use-toast";
 
 interface JenisArsip {
   id: number;
@@ -49,6 +50,7 @@ interface JenisArsip {
 }
 
 export default function ExportArsipPage() {
+  const { toast } = useToast();
   const [listJenis, setListJenis] = useState<JenisArsip[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterTahun, setFilterTahun] = useState<string>("all");
@@ -108,12 +110,26 @@ export default function ExportArsipPage() {
         const fileName = `Export_${safeName}_${tahunLabel}.xlsx`;
 
         XLSX.writeFile(workbook, fileName);
+        
+        toast({
+          variant: "success",
+          title: "Export Berhasil!",
+          description: `File ${fileName} telah berhasil diunduh.`,
+        });
       } else {
-        alert("Tidak ada data ditemukan untuk kriteria ini.");
+        toast({
+          variant: "destructive",
+          title: "Tidak Ada Data",
+          description: "Tidak ada data ditemukan untuk kriteria ini.",
+        });
       }
     } catch (error) {
       console.error(error);
-      alert("Gagal melakukan export.");
+      toast({
+        variant: "destructive",
+        title: "Export Gagal",
+        description: "Terjadi kesalahan saat melakukan export.",
+      });
     } finally {
       setIsExporting(false);
       setSelectedJenis(null); // Tutup dialog

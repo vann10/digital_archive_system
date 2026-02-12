@@ -67,8 +67,42 @@ export async function login(prevState: any, formData: FormData) {
   redirect("/dashboard");
 }
 
+
 export async function logout() {
   const cookieStore = await cookies();
   cookieStore.delete("user_session");
   redirect("/");
+}
+
+// 2. FUNGSI BARU: GET SESSION (Untuk Sidebar)
+export async function getSession() {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get("user_session");
+
+  if (!sessionCookie) {
+    return null;
+  }
+
+  try {
+    // Ambil ID dari cookie
+    const sessionData = JSON.parse(sessionCookie.value);
+    
+    // FETCH KE DATABASE (Sesuai permintaan: ambil data fresh)
+    const userData = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        role: users.role,
+      })
+      .from(users)
+      .where(eq(users.id, sessionData.id))
+      .limit(1);
+
+    if (userData.length === 0) return null;
+
+    return userData[0];
+  } catch (error) {
+    console.error("Error getSession:", error);
+    return null;
+  }
 }

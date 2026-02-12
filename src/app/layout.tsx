@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { cn } from "../lib/utils"; // Pastikan path ini benar sesuai struktur project Anda
+import { cn } from "../lib/utils";
+import { Toaster } from "../components/ui/toaster";
 
 // Menggunakan font Inter (standar modern yang bersih)
 const inter = Inter({ subsets: ["latin"] });
@@ -24,8 +25,8 @@ export default function RootLayout({
           inter.className
         )}
       >
-        {/* Render halaman apapun disini (Dashboard atau Login nanti) */}
         {children}
+        <Toaster />
       </body>
     </html>
   );

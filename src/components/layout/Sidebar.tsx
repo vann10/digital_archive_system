@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation'; // Tambah useRouter
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '../../lib/utils';
+// IMPORT SERVER ACTIONS DI SINI
+import { getSession, logout } from '../../app/actions/auth'; 
 import {
   LayoutDashboard,
   FileText,
@@ -14,10 +16,14 @@ import {
   UploadCloud,
   FolderOpen,
   Archive,
-  LogOut
+  LogOut,
+  Loader2
 } from 'lucide-react';
+import { useToast } from '@/src/hooks/use-toast'; 
 
+// ... (Definisi menuItems TETAP SAMA, tidak perlu diubah) ...
 const menuItems = [
+  // ... items ...
   {
     title: 'Dashboard',
     href: '/dashboard',
@@ -55,9 +61,51 @@ const menuItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter(); // Hook untuk navigasi manual
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const [user, setUser] = useState<{ username: string; role: string } | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
+
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
+
+  // -- 1. FETCH USER DATA (Menggunakan Server Action) --
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        // Panggil Server Action langsung, bukan fetch API URL
+        const userData = await getSession();
+        
+        if (userData) {
+          setUser(userData);
+        } else {
+          // Jika tidak ada session (null), redirect ke login
+          // router.push('/'); 
+        }
+      } catch (error) {
+        console.error("Gagal mengambil data user:", error);
+      } finally {
+        setIsLoadingUser(false);
+      }
+    };
+
+    fetchUser();
+  }, []);
+
+  // -- 2. LOGIKA LOGOUT (Menggunakan Server Action) --
+  const handleLogout = async () => {
+    try {
+      setIsLoadingUser(true);
+      await logout(); // Panggil Server Action langsung
+      // Server action akan melakukan redirect, jadi kode di bawah ini 
+      // mungkin tidak tereksekusi jika redirect berhasil, tapi aman untuk UX.
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast({ variant: "destructive", title: "Gagal Logout" });
+      setIsLoadingUser(false);
+    }
+  };
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
@@ -65,7 +113,6 @@ export function Sidebar() {
   };
 
   const handleMenuClick = (item: typeof menuItems[0]) => {
-    // KONDISI 1: Jika item punya submenu (folder)
     if (item.submenu) {
       if (isCollapsed) {
         setIsCollapsed(false);
@@ -73,10 +120,7 @@ export function Sidebar() {
       } else {
         setOpenSubmenu(openSubmenu === item.title ? null : item.title);
       }
-    } 
-    // KONDISI 2: Jika item adalah link biasa (Dashboard, Daftar Arsip)
-    else {
-      // PENTING: Lakukan navigasi manual karena elemennya div onClick
+    } else {
       router.push(item.href);
     }
   };
@@ -88,7 +132,7 @@ export function Sidebar() {
         isCollapsed ? "w-16" : "w-56"
       )}
     >
-      {/* 1. HEADER */}
+      {/* HEADER */}
       <div className={cn(
         "h-[60px] flex items-center px-3 border-b border-slate-800/50 relative transition-all duration-300",
         isCollapsed ? "justify-center" : "justify-between group"
@@ -98,7 +142,7 @@ export function Sidebar() {
             onClick={toggleSidebar}
             className="relative group/mini flex items-center justify-center w-9 h-9 rounded-lg transition-all"
           >
-            <div className="absolute inset-0 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-900/20 transition-all duration-300 transform scale-100 opacity-100 group-hover/mini:scale-90 group-hover/mini:opacity-0">
+             <div className="absolute inset-0 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-900/20 transition-all duration-300 transform scale-100 opacity-100 group-hover/mini:scale-90 group-hover/mini:opacity-0">
                <Archive className="w-5 h-5 text-white" />
             </div>
             <div className="absolute inset-0 bg-slate-800 rounded-lg border border-slate-600 flex items-center justify-center transition-all duration-300 transform scale-90 opacity-0 group-hover/mini:scale-100 group-hover/mini:opacity-100 text-slate-300 hover:text-white hover:border-blue-500 hover:bg-slate-700">
@@ -126,7 +170,7 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* 2. MENU NAVIGASI */}
+      {/* MENU NAVIGASI */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-2 space-y-1">
         {menuItems.map((item, index) => {
           const isActive = pathname === item.href || (item.submenu && pathname.startsWith(item.href));
@@ -193,26 +237,50 @@ export function Sidebar() {
         })}
       </div>
 
-      {/* 3. FOOTER */}
+      {/* FOOTER */}
       <div className="p-3 border-t border-slate-800/50 bg-[#0F172A]">
         <div className={cn(
           "flex items-center transition-all duration-300",
           isCollapsed ? "justify-center" : "gap-2.5"
         )}>
+          {/* Avatar / Inisial */}
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-md flex-shrink-0">
-            AD
+            {isLoadingUser ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              user?.username?.substring(0, 2).toUpperCase() || "GU"
+            )}
           </div>
           
+          {/* Info User */}
           <div className={cn(
             "flex flex-col overflow-hidden transition-all duration-300 whitespace-nowrap",
             isCollapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100"
           )}>
-            <span className="text-[13px] font-semibold text-slate-200">Admin Dinsos</span>
-            <span className="text-[10px] text-slate-500">Administrator</span>
+            {isLoadingUser ? (
+              <div className="space-y-1">
+                <div className="h-3 w-20 bg-slate-700 rounded animate-pulse" />
+                <div className="h-2 w-12 bg-slate-700 rounded animate-pulse" />
+              </div>
+            ) : (
+              <>
+                <span className="text-[13px] font-semibold text-slate-200 truncate max-w-[120px]" title={user?.username || 'Guest'}>
+                  {user?.username || 'Guest User'}
+                </span>
+                <span className="text-[10px] text-slate-500 capitalize">
+                  {user?.role || 'Viewer'}
+                </span>
+              </>
+            )}
           </div>
 
+          {/* Tombol Logout */}
           {!isCollapsed && (
-             <button className="ml-auto text-slate-500 hover:text-red-400 transition-colors" title="Logout">
+             <button 
+               onClick={handleLogout}
+               className="ml-auto text-slate-500 hover:text-red-400 hover:bg-red-900/20 p-1.5 rounded-md transition-all" 
+               title="Logout"
+             >
                <LogOut size={16} />
              </button>
           )}

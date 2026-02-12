@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Alert, AlertDescription, AlertTitle } from "../../../components/ui/alert";
 import Link from "next/link";
 import { cn } from "../../../lib/utils";
+import { useToast } from "@/src/hooks/use-toast";
 
 // Definisi Schema Field Internal
 type SchemaField = {
@@ -23,16 +24,15 @@ type SchemaField = {
   isCustom: boolean;
 };
 
-// Field Standar yang selalu ada
+// Field Standar yang selalu ada (Updated: Menambahkan Prefix)
 const STANDARD_FIELDS: SchemaField[] = [
-  { id: "judul", label: "Judul Arsip", required: true, isCustom: false },
+  { id: "prefix", label: "Prefix Kode", required: false, isCustom: false },
   { id: "nomorArsip", label: "Nomor Arsip", required: false, isCustom: false },
-  { id: "tahun", label: "Tahun", required: true, isCustom: false },
-  { id: "keterangan", label: "Keterangan/Deskripsi", required: false, isCustom: false },
 ];
 
 export default function ImportArsipPage() {
   const router = useRouter();
+  const { toast } = useToast();
   
   // -- STATES --
   const [step, setStep] = useState<1 | 2 | 3>(1); 
@@ -63,24 +63,21 @@ export default function ImportArsipPage() {
 
   // -- COMPUTED SCHEMA --
   const availableFields = useMemo(() => {
-    if (!selectedJenisData) return [];
+    if (!selectedJenisData) return STANDARD_FIELDS;
     
     let customFields: SchemaField[] = [];
-    try {
-      const parsedConfig = typeof selectedJenisData.schemaConfig === 'string' 
-        ? JSON.parse(selectedJenisData.schemaConfig) 
-        : selectedJenisData.schemaConfig;
-        
-      if (Array.isArray(parsedConfig)) {
-        customFields = parsedConfig.map((f: any) => ({
-          id: f.id || f.key, 
-          label: f.label,
-          required: false, 
-          isCustom: true
-        }));
-      }
-    } catch (e) {}
+    
+    // schemaConfig is already an array from the action
+    if (Array.isArray(selectedJenisData.schemaConfig)) {
+      customFields = selectedJenisData.schemaConfig.map((f: any) => ({
+        id: String(f.id),
+        label: f.labelKolom || f.label || f.namaKolom,
+        required: f.isRequired || false,
+        isCustom: true
+      }));
+    }
 
+    // Menggabungkan field standar dan custom tanpa grouping visual nanti
     return [...STANDARD_FIELDS, ...customFields];
   }, [selectedJenisData]);
 
@@ -116,11 +113,18 @@ export default function ImportArsipPage() {
           headers.forEach(header => {
             const headerLower = header.toLowerCase().trim();
             const match = availableFields.find(field => {
-              if (field.label.toLowerCase() === headerLower) return true;
-              if (field.id.toLowerCase() === headerLower) return true;
-              if (field.id === 'judul' && ['title', 'perihal', 'subjek', 'nama', 'nama pegawai'].includes(headerLower)) return true;
-              if (field.id === 'tahun' && ['year', 'thn'].includes(headerLower)) return true;
-              if (field.id === 'nomorArsip' && ['no', 'nomor', 'number', 'nip', 'nik'].includes(headerLower)) return true;
+              const fieldLower = field.label.toLowerCase();
+              const fieldIdLower = field.id.toLowerCase();
+              
+              if (fieldLower === headerLower) return true;
+              if (fieldIdLower === headerLower) return true;
+              
+              // Additional matching for common field names
+              if (fieldIdLower.includes('nama') && ['nama', 'name', 'nama pegawai'].includes(headerLower)) return true;
+              if (fieldIdLower.includes('nip') && ['nip', 'nomor', 'no'].includes(headerLower)) return true;
+              if (fieldIdLower.includes('nomor') && ['nomor', 'no', 'number'].includes(headerLower)) return true;
+              if (fieldIdLower.includes('prefix') && ['prefix', 'kode'].includes(headerLower)) return true;
+              
               return false;
             });
             
@@ -147,16 +151,18 @@ export default function ImportArsipPage() {
 
   // -- VALIDATION STATUS --
   const validationStatus = useMemo(() => {
-    const mappedTargetIds = Object.values(columnMapping);
-    const missingRequired = STANDARD_FIELDS
+    // Validasi hanya mengecek apakah ada field required yang belum dipetakan
+    const mappedTargetIds = Object.values(columnMapping).filter(v => v !== "ignore");
+    
+    const missingRequired = availableFields
       .filter(f => f.required)
       .filter(f => !mappedTargetIds.includes(f.id));
-      
+
     return {
-      isValid: missingRequired.length === 0,
+      isValid: missingRequired.length === 0 && mappedTargetIds.length > 0,
       missingFields: missingRequired.map(f => f.label)
     };
-  }, [columnMapping]);
+  }, [columnMapping, availableFields]);
 
   // -- SUBMIT IMPORT FINAL --
   const handleFinalImport = async () => {
@@ -173,7 +179,11 @@ export default function ImportArsipPage() {
 
         // 2. Transform Data menggunakan mapping yang sudah disetujui user
         const formattedRows = fullData.map((row: any) => {
-          const newRow: any = { dataCustom: {} };
+          const newRow: any = { 
+            nomorArsip: null,
+            prefix: null, // Placeholder jika backend nanti mendukung override prefix
+            dataCustom: {} 
+          };
           
           Object.keys(row).forEach(header => {
             const targetId = columnMapping[header];
@@ -181,11 +191,13 @@ export default function ImportArsipPage() {
             
             if (!targetId || targetId === "ignore") return;
             
-            const isStandard = STANDARD_FIELDS.some(f => f.id === targetId);
-            
-            if (isStandard) {
-              newRow[targetId] = value;
+            // Mapping Logic
+            if (targetId === 'nomorArsip') {
+              newRow.nomorArsip = value;
+            } else if (targetId === 'prefix') {
+              newRow.prefix = value;
             } else {
+              // Field dinamis (Custom Schema) masuk ke dataCustom
               newRow.dataCustom[targetId] = value;
             }
           });
@@ -201,19 +213,35 @@ export default function ImportArsipPage() {
           });
 
           if (res.success) {
-            alert(`Sukses! ${formattedRows.length} data berhasil diimport.`);
+            toast({
+              variant: "success",
+              title: "Import Berhasil!",
+              description: `${formattedRows.length} data berhasil diimport.`,
+            });
             router.push("/arsip");
           } else {
-            alert("Gagal: " + res.message);
+            toast({
+              variant: "destructive",
+              title: "Import Gagal",
+              description: res.message || "Terjadi kesalahan saat import data.",
+            });
           }
         } catch (err) {
-          alert("Terjadi kesalahan saat mengirim data.");
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Terjadi kesalahan saat mengirim data.",
+          });
         } finally {
           setIsSubmitting(false);
         }
       },
       error: (err) => {
-        alert("Gagal membaca file penuh: " + err.message);
+        toast({
+          variant: "destructive",
+          title: "Error Parsing File",
+          description: err.message || "Gagal membaca file CSV.",
+        });
         setIsSubmitting(false);
       }
     });
@@ -310,7 +338,7 @@ export default function ImportArsipPage() {
                </Button>
             </div>
             <CardDescription>
-              File CSV hanya perlu berisi data. Kolom 'Jenis Arsip' tidak diperlukan karena sudah dipilih sebelumnya.
+              File CSV hanya perlu berisi data.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -388,7 +416,7 @@ export default function ImportArsipPage() {
                     {csvHeaders.map((header) => {
                       const mappedId = columnMapping[header] || "ignore";
                       const isMapped = mappedId !== "ignore";
-                      const isRequiredMapped = STANDARD_FIELDS.find(f => f.id === mappedId)?.required;
+                      const isRequiredMapped = availableFields.find(f => f.id === mappedId)?.required;
 
                       return (
                         <TableHead key={header} className="min-w-[200px] bg-gray-50 p-2">
@@ -410,17 +438,11 @@ export default function ImportArsipPage() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="ignore" className="text-gray-400">-- Abaikan --</SelectItem>
-                                <SelectItem disabled value="sep1" className="text-xs font-bold text-black mt-2 bg-gray-100">--- KOLOM WAJIB ---</SelectItem>
-                                {availableFields.filter(f => f.required).map(f => (
-                                  <SelectItem key={f.id} value={f.id}>{f.label} (Wajib)</SelectItem>
-                                ))}
-                                <SelectItem disabled value="sep2" className="text-xs font-bold text-black mt-2 bg-gray-100">--- OPSIONAL ---</SelectItem>
-                                {availableFields.filter(f => !f.required && !f.isCustom).map(f => (
-                                  <SelectItem key={f.id} value={f.id}>{f.label}</SelectItem>
-                                ))}
-                                <SelectItem disabled value="sep3" className="text-xs font-bold text-black mt-2 bg-gray-100">--- CUSTOM ---</SelectItem>
-                                {availableFields.filter(f => f.isCustom).map(f => (
-                                  <SelectItem key={f.id} value={f.id}>{f.label}</SelectItem>
+                                {/* Pilihan Flat tanpa grouping "Wajib" atau "Opsional" */}
+                                {availableFields.map((f) => (
+                                  <SelectItem key={f.id} value={f.id}>
+                                    {f.label} {f.required && "*"}
+                                  </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
@@ -435,17 +457,18 @@ export default function ImportArsipPage() {
                     <TableRow key={i}>
                       <TableCell>{i + 1}</TableCell>
                       {csvHeaders.map((header) => {
-                        const targetField = columnMapping[header];
+                        const targetFieldId = columnMapping[header];
                         const val = row[header];
                         
-                        let isError = false;
-                        if (targetField === 'tahun' && isNaN(parseInt(val))) isError = true;
-                        
+                        // Error visual jika field required tapi data kosong
+                        const fieldConfig = availableFields.find(f => f.id === targetFieldId);
+                        const isEmptyRequired = fieldConfig?.required && !val;
+
                         return (
                           <TableCell key={header + i} className={cn(
                              "text-sm truncate max-w-[200px]",
-                             targetField === "ignore" ? "text-gray-300 line-through" : "",
-                             isError ? "bg-red-50 text-red-600 font-medium" : ""
+                             targetFieldId === "ignore" ? "text-gray-300 line-through" : "",
+                             isEmptyRequired ? "bg-red-50 text-red-600 font-medium" : ""
                           )}>
                             {val}
                           </TableCell>

@@ -120,7 +120,7 @@ export default async function DashboardPage() {
         totalArsip={stats.totalArsip}
         arsipBulanIni={stats.arsipBulanIni}
         penggunaAktif={stats.penggunaAktif}
-        growthBulanIni={stats.growthBulanIni}
+        totalJenisArsip={stats.totalJenisArsip}
       />
 
       {/* CHARTS */}

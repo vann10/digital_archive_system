@@ -10,7 +10,7 @@ export interface DashboardStats {
   totalArsip: number;
   arsipBulanIni: number;
   penggunaAktif: number;
-  growthBulanIni: number;
+  totalJenisArsip: number;
 }
 
 export interface ArsipPerBulan {
@@ -53,6 +53,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
     // ambil semua jenis
     const jenisList = await db.select().from(jenisArsip);
+    const totalJenisArsip = jenisList.length;
 
     let totalArsip = 0;
     let arsipBulanIni = 0;
@@ -86,7 +87,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       totalArsip,
       arsipBulanIni,
       penggunaAktif,
-      growthBulanIni: 0, // bisa ditambah nanti
+      totalJenisArsip,
     };
   } catch (err) {
     console.error(err);
@@ -94,7 +95,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       totalArsip: 0,
       arsipBulanIni: 0,
       penggunaAktif: 0,
-      growthBulanIni: 0,
+      totalJenisArsip: 0,
     };
   }
 }
