@@ -11,7 +11,13 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { Button } from "../../components/ui/button";
-import { Trash2, FileText, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
+import {
+  Trash2,
+  FileText,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown,
+} from "lucide-react";
 import { cn } from "../../lib/utils";
 import { ArsipDetailDialog } from "../../components/arsip/arsip-detail-dialog";
 
@@ -28,7 +34,7 @@ interface ArsipTableProps {
   page: number;
   itemsPerPage: number;
   // dynamicSchema sekarang menjadi single source of truth untuk kolom
-  dynamicSchema: SchemaColumn[]; 
+  dynamicSchema: SchemaColumn[];
   isJenisSelected: boolean;
   onDelete: (id: number) => Promise<void>;
   sortConfig?: { key: string; direction: "asc" | "desc" };
@@ -45,7 +51,10 @@ const renderCellContent = (value: any, type: string = "TEXT") => {
   if (value === null || value === undefined) return "-";
 
   // Cek jika tipe data DATE atau value terlihat seperti tanggal ISO string
-  if (type === "DATE" || (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value))) {
+  if (
+    type === "DATE" ||
+    (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value))
+  ) {
     const date = new Date(value);
     if (!isNaN(date.getTime())) {
       return date.toLocaleDateString("id-ID", {
@@ -77,7 +86,9 @@ const SortButton = ({
       onClick={() => onSort?.(columnKey)}
       className={cn(
         "ml-2 p-1 rounded hover:bg-slate-200 transition-colors inline-flex items-center",
-        isActive ? "text-blue-600 bg-blue-50" : "text-slate-400 hover:text-slate-600"
+        isActive
+          ? "text-blue-600 bg-blue-50"
+          : "text-slate-400 hover:text-slate-600",
       )}
       title={`Urutkan berdasarkan ${columnKey}`}
     >
@@ -119,13 +130,23 @@ export function ArsipTable({
         const next = { ...prev };
         // Set default widths
         if (!next["no"]) next["no"] = 60;
-        
+
         dynamicSchema.forEach((col) => {
           if (!next[col.nama_kolom]) {
             // Logika sederhana untuk menentukan lebar default
-            if (col.nama_kolom === "uraian" || col.nama_kolom === "keterangan") {
+            if (
+              col.nama_kolom === "uraian" ||
+              col.nama_kolom === "keterangan"
+            ) {
               next[col.nama_kolom] = 300;
-            } else if (col.nama_kolom.includes("tanggal") || col.tipe_data === "DATE") {
+            } else if (col.nama_kolom === "prefix") {
+              next[col.nama_kolom] = 100;
+            } else if (col.nama_kolom === "nomor_arsip") {
+              next[col.nama_kolom] = 100;
+            } else if (
+              col.nama_kolom.includes("tanggal") ||
+              col.tipe_data === "DATE"
+            ) {
               next[col.nama_kolom] = 120;
             } else if (col.nama_kolom === "jumlah_berkas") {
               next[col.nama_kolom] = 100;
@@ -184,7 +205,11 @@ export function ArsipTable({
     if (!isJenisSelected) return {};
     const width = columnWidths[id];
     if (!width) return {};
-    return { width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` };
+    return {
+      width: `${width}px`,
+      minWidth: `${width}px`,
+      maxWidth: `${width}px`,
+    };
   };
 
   const ResizerHandle = ({ id }: { id: string }) => {
@@ -196,7 +221,7 @@ export function ArsipTable({
         className={cn(
           "absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-20",
           "hover:bg-blue-400 transition-colors opacity-0 hover:opacity-100",
-          resizing?.id === id && "bg-blue-600 opacity-100 w-[2px]"
+          resizing?.id === id && "bg-blue-600 opacity-100 w-[2px]",
         )}
         title="Geser lebar kolom"
       />
@@ -235,15 +260,14 @@ export function ArsipTable({
           "w-full text-sm",
           isJenisSelected
             ? "table-fixed w-max min-w-full border-separate border-spacing-0"
-            : "min-w-full"
+            : "min-w-full",
         )}
       >
         <TableHeader>
           <TableRow className="bg-slate-50 hover:bg-slate-50 border-b border-slate-200">
-            
             {/* --- KOLOM NO (FIXED) --- */}
             <TableHead
-              className="h-10 font-bold text-slate-700 bg-slate-50 sticky left-0 z-30 text-center border-r border-slate-200"
+              className="h-10 font-semibold text-slate-700 bg-slate-50 sticky left-0 z-30 text-center border-r border-slate-200"
               style={getWidthStyle("no")}
             >
               No <ResizerHandle id="no" />
@@ -253,7 +277,7 @@ export function ArsipTable({
             {dynamicSchema.map((col) => (
               <TableHead
                 key={col.nama_kolom}
-                className="h-10 font-bold text-slate-700 bg-slate-50 relative border-r border-slate-200 whitespace-nowrap"
+                className="h-10 font-semibold  text-slate-700 bg-slate-50 relative border-r border-slate-200 whitespace-nowrap"
                 style={getWidthStyle(col.nama_kolom)}
               >
                 <div className="flex items-center justify-between px-1">
@@ -318,11 +342,11 @@ export function ArsipTable({
                   // Ambil data langsung dari item berdasarkan nama_kolom
                   // Backend harus mengirim JSON flat: { id: 1, uraian: '...', kode_unik: '...', ... }
                   const rawValue = item[col.nama_kolom];
-                  
+
                   return (
                     <TableCell
                       key={`${item.id}-${col.nama_kolom}`}
-                      className="py-2 px-3 border-r border-slate-100 truncate text-slate-700"
+                      className="py-2 px-3 border-r border-slate-100 truncate font-normal text-slate-700"
                       style={getWidthStyle(col.nama_kolom)}
                     >
                       <span title={String(rawValue ?? "")}>
