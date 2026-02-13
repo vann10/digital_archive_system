@@ -60,7 +60,6 @@ export const defaultValues = sqliteTable('default_values', {
   namaKolom: text('nama_kolom').notNull(), // Nama kolom yang akan diberi default value
   nilaiDefault: text('nilai_default').notNull(), // Nilai default
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
 });
 
 // --------------------------------------------------------------------------

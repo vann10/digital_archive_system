@@ -87,11 +87,14 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
   const [showDefaults, setShowDefaults] = useState(false);
   const [defaults, setDefaults] = useState<Record<string, string>>({});
   const userId = 5; // Hardcoded sesuai aslinya, sesuaikan jika ada sistem auth
-  const [baseNomor, setBaseNomor] = useState<number>(1);
+  const [lastNomor, setLastNomor] = useState<string>("");
 
   // --- STATE RESIZE ---
   const [colWidths, setColWidths] =
     useState<Record<string, number>>(DEFAULT_WIDTHS);
+
+  // --- STATE UNTUK FOCUS TRACKING ---
+  const [focusedCell, setFocusedCell] = useState<{row: number, col: string} | null>(null);
 
   // --- REFS ---
   // Ref untuk drag logic
@@ -157,23 +160,29 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
         // Ambil nomor terakhir dari DB
         try {
           const lastNum = await getLastNomorArsip(parseInt(selectedJenisId));
-          const nextNum = lastNum + 1;
+          
+          setLastNomor(lastNum);
 
-          setBaseNomor(nextNum);
+          // Suggestikan nomor berikutnya (jika nomor terakhir adalah angka)
+          let suggestedNomor = "";
+          if (lastNum && /^\d+$/.test(lastNum)) {
+            const nextNum = parseInt(lastNum) + 1;
+            suggestedNomor = String(nextNum);
+          }
 
           // Reset Rows dengan nomor baru
           setRows([
             {
               ...jenis.defaultValues,
-              nomor_arsip: nextNum,
+              nomor_arsip: suggestedNomor,
               prefix: jenis.prefixKode,
             },
           ]);
         } catch (err) {
           console.error("Gagal ambil nomor", err);
-          // Fallback jika error, pakai 1
-          setBaseNomor(1);
-          setRows([{ prefix: jenis.prefixKode, nomor_arsip: 1 }]);
+          // Fallback jika error
+          setLastNomor("");
+          setRows([{ prefix: jenis.prefixKode, nomor_arsip: "" }]);
         } finally {
           setIsLoadingNomor(false);
         }
@@ -268,18 +277,33 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
     const count = addCount > 0 ? addCount : 1;
 
     setRows((prev) => {
-      const lastNomorInTable =
-        prev.length > 0
-          ? Number(prev[prev.length - 1].nomor_arsip || 0)
-          : baseNomor - 1;
+      // Ambil nomor terakhir dari row terakhir
+      let suggestedNomor = "";
+      if (prev.length > 0) {
+        const lastNomor = prev[prev.length - 1].nomor_arsip;
+        // Jika nomor terakhir adalah angka, increment
+        if (lastNomor && /^\d+$/.test(lastNomor)) {
+          const nextNum = parseInt(lastNomor) + 1;
+          suggestedNomor = String(nextNum);
+        }
+      } else if (lastNomor && /^\d+$/.test(lastNomor)) {
+        // Jika belum ada row, gunakan lastNomor + 1
+        const nextNum = parseInt(lastNomor) + 1;
+        suggestedNomor = String(nextNum);
+      }
 
-      const startFrom = lastNomorInTable > 0 ? lastNomorInTable : baseNomor - 1;
-
-      const newRows = Array.from({ length: count }, (_, i) => ({
-        ...defaults,
-        prefix: selectedJenis?.prefixKode,
-        nomor_arsip: startFrom + i + 1,
-      }));
+      const newRows = Array.from({ length: count }, (_, i) => {
+        let rowNomor = "";
+        if (suggestedNomor && /^\d+$/.test(suggestedNomor)) {
+          rowNomor = String(parseInt(suggestedNomor) + i);
+        }
+        
+        return {
+          ...defaults,
+          prefix: selectedJenis?.prefixKode,
+          nomor_arsip: rowNomor,
+        };
+      });
 
       return [...prev, ...newRows];
     });
@@ -296,6 +320,129 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
     const newRows = [...rows];
     newRows[index] = { ...newRows[index], [field]: value };
     setRows(newRows);
+  };
+
+  // --- KEYBOARD SHORTCUTS HANDLER ---
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    rowIndex: number,
+    colKey: string
+  ) => {
+    const allCols = ['prefix', 'nomor_arsip', ...schema.map(s => s.namaKolom)];
+    const currentColIndex = allCols.indexOf(colKey);
+    
+    // Enter: pindah ke baris bawah, kolom yang sama
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      
+      // Jika baris terakhir, tambah row baru
+      if (rowIndex === rows.length - 1) {
+        addMultipleRows();
+        // Focus akan otomatis pindah setelah row baru ditambahkan
+        setTimeout(() => {
+          const nextInput = document.querySelector(
+            `input[data-row="${rowIndex + 1}"][data-col="${colKey}"]`
+          ) as HTMLInputElement;
+          nextInput?.focus();
+        }, 50);
+      } else {
+        // Pindah ke row berikutnya
+        const nextInput = document.querySelector(
+          `input[data-row="${rowIndex + 1}"][data-col="${colKey}"]`
+        ) as HTMLInputElement;
+        nextInput?.focus();
+      }
+    }
+    
+    // Arrow Down: sama seperti Enter
+    else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (rowIndex < rows.length - 1) {
+        const nextInput = document.querySelector(
+          `input[data-row="${rowIndex + 1}"][data-col="${colKey}"]`
+        ) as HTMLInputElement;
+        nextInput?.focus();
+      }
+    }
+    
+    // Arrow Up: pindah ke baris atas
+    else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (rowIndex > 0) {
+        const prevInput = document.querySelector(
+          `input[data-row="${rowIndex - 1}"][data-col="${colKey}"]`
+        ) as HTMLInputElement;
+        prevInput?.focus();
+      }
+    }
+    
+    // Arrow Right: pindah ke kolom kanan
+    else if (e.key === 'ArrowRight') {
+      // Hanya pindah jika cursor di akhir text
+      const input = e.currentTarget;
+      if (input.selectionStart === input.value.length) {
+        e.preventDefault();
+        if (currentColIndex < allCols.length - 1) {
+          const nextCol = allCols[currentColIndex + 1];
+          const nextInput = document.querySelector(
+            `input[data-row="${rowIndex}"][data-col="${nextCol}"]`
+          ) as HTMLInputElement;
+          nextInput?.focus();
+        }
+      }
+    }
+    
+    // Arrow Left: pindah ke kolom kiri
+    else if (e.key === 'ArrowLeft') {
+      // Hanya pindah jika cursor di awal text
+      const input = e.currentTarget;
+      if (input.selectionStart === 0) {
+        e.preventDefault();
+        if (currentColIndex > 0) {
+          const prevCol = allCols[currentColIndex - 1];
+          const prevInput = document.querySelector(
+            `input[data-row="${rowIndex}"][data-col="${prevCol}"]`
+          ) as HTMLInputElement;
+          prevInput?.focus();
+        }
+      }
+    }
+    
+    // Tab: pindah ke kolom kanan (default behavior, tapi kita bisa custom)
+    else if (e.key === 'Tab' && !e.shiftKey) {
+      e.preventDefault();
+      if (currentColIndex < allCols.length - 1) {
+        const nextCol = allCols[currentColIndex + 1];
+        const nextInput = document.querySelector(
+          `input[data-row="${rowIndex}"][data-col="${nextCol}"]`
+        ) as HTMLInputElement;
+        nextInput?.focus();
+      } else if (rowIndex < rows.length - 1) {
+        // Jika di kolom terakhir, pindah ke row berikutnya kolom pertama
+        const nextInput = document.querySelector(
+          `input[data-row="${rowIndex + 1}"][data-col="${allCols[0]}"]`
+        ) as HTMLInputElement;
+        nextInput?.focus();
+      }
+    }
+    
+    // Shift+Tab: pindah ke kolom kiri
+    else if (e.key === 'Tab' && e.shiftKey) {
+      e.preventDefault();
+      if (currentColIndex > 0) {
+        const prevCol = allCols[currentColIndex - 1];
+        const prevInput = document.querySelector(
+          `input[data-row="${rowIndex}"][data-col="${prevCol}"]`
+        ) as HTMLInputElement;
+        prevInput?.focus();
+      } else if (rowIndex > 0) {
+        // Jika di kolom pertama, pindah ke row sebelumnya kolom terakhir
+        const prevInput = document.querySelector(
+          `input[data-row="${rowIndex - 1}"][data-col="${allCols[allCols.length - 1]}"]`
+        ) as HTMLInputElement;
+        prevInput?.focus();
+      }
+    }
   };
 
   const handleDefaultChange = (field: string, value: string) => {
@@ -350,7 +497,7 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
         // Reset rows untuk batch berikutnya, ambil nomor terbaru
         try {
            const nextNum = await getLastNomorArsip(parseInt(selectedJenisId)) + 1;
-           setBaseNomor(nextNum);
+           setLastNomor(nextNum);
            setRows([
             {
               ...defaults,
@@ -364,7 +511,7 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
              {
                ...defaults,
                prefix: selectedJenis?.prefixKode,
-               nomor_arsip: baseNomor,
+               nomor_arsip: lastNomor,
              },
            ]);
         }
@@ -582,6 +729,8 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
                       <TableCell className="p-1 border-r border-green-100 bg-slate-50">
                         <Input
                           type="text"
+                          data-row={index}
+                          data-col="prefix"
                           className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-green-500 h-9 rounded-sm bg-transparent text-slate-700 w-full font-mono uppercase text-center font-semibold"
                           value={row["prefix"] || ""}
                           onChange={(e) =>
@@ -591,6 +740,7 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
                               e.target.value.toUpperCase(),
                             )
                           }
+                          onKeyDown={(e) => handleKeyDown(e, index, "prefix")}
                           placeholder={selectedJenis?.prefixKode || "PREFIX"}
                         />
                       </TableCell>
@@ -598,13 +748,16 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
                       {/* Nomor Arsip */}
                       <TableCell className="p-1 border-r border-green-100 bg-slate-50">
                         <Input
-                          type="number"
+                          type="text"
+                          data-row={index}
+                          data-col="nomor_arsip"
                           className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-green-500 h-9 rounded-sm bg-transparent text-slate-700 w-full font-mono text-center font-semibold"
                           value={row["nomor_arsip"] || ""}
                           onChange={(e) =>
-                            handleNomorChange(index, Number(e.target.value))
+                            handleNomorChange(index, parseInt(e.target.value) || 0)
                           }
-                          placeholder={baseNomor.toString()}
+                          onKeyDown={(e) => handleKeyDown(e, index, "nomor_arsip")}
+                          placeholder=""
                         />
                       </TableCell>
                       {/* Dynamic columns */}
@@ -621,6 +774,8 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
                                   ? "number"
                                   : "text"
                             }
+                            data-row={index}
+                            data-col={col.namaKolom}
                             className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-blue-500 h-9 rounded-sm bg-transparent text-slate-700 w-full"
                             value={row[col.namaKolom] || ""}
                             onChange={(e) =>
@@ -630,6 +785,7 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
                                 e.target.value,
                               )
                             }
+                            onKeyDown={(e) => handleKeyDown(e, index, col.namaKolom)}
                           />
                         </TableCell>
                       ))}

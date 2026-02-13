@@ -5,6 +5,7 @@ import {
   FolderOpen,
   Pencil,
   LayoutTemplate,
+  Edit3,
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Badge } from "../../../components/ui/badge";
@@ -87,7 +88,19 @@ export default async function JenisArsipPage({ searchParams }: PageProps) {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center">
+              <div className="flex items-center gap-1">
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-slate-400 hover:text-green-600"
+                  title="Batch Edit Data"
+                >
+                  <Link href={`/arsip/jenis/${item.id}/batch-edit`}>
+                    <Edit3 className="w-4 h-4" />
+                  </Link>
+                </Button>
+
                 <Button
                   asChild
                   variant="ghost"

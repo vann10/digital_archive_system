@@ -78,7 +78,6 @@ export async function saveDefaultValues(jenisId: number, defaults: Record<string
   }
 }
 
-// --- GET NOMOR ARSIP TERAKHIR ---
 async function getLastnomor_arsip(tableName: string): Promise<string> {
   try {
     const result = await db.get(
@@ -105,7 +104,6 @@ async function getLastnomor_arsip(tableName: string): Promise<string> {
   }
 }
 
-// --- SAVE BULK ARSIP ---
 export async function saveBulkArsip(
   rows: any[],
   jenisId: number,
@@ -132,9 +130,9 @@ export async function saveBulkArsip(
     throw new Error("Nama tabel tidak valid");
   }
 
-  // 2. Ambil nomor urut internal terakhir
+  // 2. Ambil nomor urut internal terakhir (sebagai INTEGER untuk ID)
   const lastNumberResult = (await db.get(
-    sql`SELECT COALESCE(MAX(nomor_arsip),0) as last FROM ${sql.raw(tableName)}`,
+    sql`SELECT COALESCE(MAX(id),0) as last FROM ${sql.raw(tableName)}`,
   )) as { last: number } | undefined;
 
   let currentNumber = Number(lastNumberResult?.last || 0);
@@ -153,29 +151,21 @@ export async function saveBulkArsip(
     if (r.nilaiDefault) defaultMap[r.namaKolom] = r.nilaiDefault;
   });
 
-  // 4. Get last nomor arsip untuk auto-increment
-  let currentnomor_arsip = await getLastnomor_arsip(tableName);
-
-  // 5. Insert setiap row
+  // 4. Insert setiap row
   for (const row of rows) {
-    currentNumber += 1;
+    currentNumber += 1; // ID internal tetap increment
 
-    // Ambil prefix dari input user, atau gunakan default
+    // Ambil prefix dan nomor_arsip dari input user
     const prefix = row.prefix || defaultPrefix;
-    
-    // Auto-increment nomor arsip
-    const nomor_arsip = currentnomor_arsip;
-    
-    // Increment untuk row berikutnya
-    const nextNum = parseInt(currentnomor_arsip, 10) + 1;
-    currentnomor_arsip = String(nextNum).padStart(3, '0');
+    const nomor_arsip = row.nomor_arsip ? String(row.nomor_arsip) : "";
     
     // Gabungkan: Default Value + Input User + System Value
     const finalRow = {
       ...defaultMap,  // Default values dulu
       ...row,         // User input (override default)
       // System fields (tidak bisa di-override)
-      nomor_arsip: currentNumber,
+      id: currentNumber,  // ID internal sebagai integer
+      nomor_arsip: nomor_arsip,  // nomor_arsip sebagai string dari user
       prefix: prefix,
       created_at: new Date().toISOString(),
       created_by: userId,
@@ -216,34 +206,42 @@ export async function saveBulkArsip(
   return { success: true };
 }
 
-export async function getLastNomorArsip(jenisId: number) {
+export async function getLastNomorArsip(jenisId: number): Promise<string> {
   try {
     // 1. Cari info tabel berdasarkan jenisId
     const jenis = await db.query.jenisArsip.findFirst({
       where: eq(jenisArsip.id, jenisId),
     });
 
-    if (!jenis) return 0;
+    if (!jenis) return "";
 
     const tableName = jenis.namaTabel;
 
     // Validasi nama tabel (security check)
     if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
-      return 0;
+      return "";
     }
 
-    // 2. Query MAX nomor_arsip dari tabel dinamis
-    // Menggunakan sql.raw karena nama tabel dinamis
+    // 2. Query nomor_arsip terakhir yang berupa angka
     const result: any = await db.get(
-      sql.raw(`SELECT MAX(CAST(nomor_arsip AS INTEGER)) as max_nomor FROM ${tableName}`)
+      sql.raw(`
+        SELECT nomor_arsip 
+        FROM ${tableName} 
+        WHERE nomor_arsip GLOB '[0-9]*'
+        ORDER BY CAST(nomor_arsip AS INTEGER) DESC 
+        LIMIT 1
+      `)
     );
 
-    // Jika tabel kosong, result.max_nomor akan null, kita return 0
-    const lastNumber = result?.max_nomor ? parseInt(result.max_nomor) : 0;
+    // Jika tabel kosong atau tidak ada nomor yang valid, return kosong
+    if (!result || !result.nomor_arsip) {
+      return "";
+    }
     
-    return lastNumber;
+    // Return nomor terakhir sebagai string
+    return String(result.nomor_arsip);
   } catch (error) {
     console.error("Error fetching last nomor arsip:", error);
-    return 0;
+    return "";
   }
 }
