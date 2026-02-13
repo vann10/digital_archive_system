@@ -20,12 +20,20 @@ import {
   TableRow,
 } from "@/src/components/ui/table";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/src/components/ui/select";
+import {
   Save,
   Trash2,
   Loader2,
   AlertCircle,
+  RefreshCw,
 } from "lucide-react";
-import { saveBatchEdit, deleteBatchRows } from "@/src/app/actions/batch-edit-arsip";
+import { saveBatchEdit, deleteBatchRows, batchUpdateColumn as batchUpdateColumnAction } from "@/src/app/actions/batch-edit-arsip";
 import { useToast } from "@/src/hooks/use-toast";
 
 type SchemaConfig = {
@@ -63,6 +71,13 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [colWidths, setColWidths] = useState<Record<string, number>>({});
+  
+  // State untuk batch update column
+  const [showBatchUpdate, setShowBatchUpdate] = useState(false);
+  const [batchUpdateColumn, setBatchUpdateColumn] = useState<string>("");
+  const [batchUpdateValue, setBatchUpdateValue] = useState<string>("");
+  const [isUpdatingColumn, setIsUpdatingColumn] = useState(false);
+  
   const userId = 5; // Adjust according to your auth system
 
   // Refs for resizing
@@ -237,6 +252,74 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
     }
   };
 
+  const handleBatchUpdateColumn = async () => {
+    if (selectedRows.size === 0) {
+      toast({
+        variant: "destructive",
+        title: "Tidak ada data yang dipilih",
+        description: "Pilih data yang ingin diupdate terlebih dahulu.",
+      });
+      return;
+    }
+
+    if (!batchUpdateColumn) {
+      toast({
+        variant: "destructive",
+        title: "Kolom belum dipilih",
+        description: "Pilih kolom yang ingin diupdate.",
+      });
+      return;
+    }
+
+    setIsUpdatingColumn(true);
+    try {
+      const result = await batchUpdateColumnAction(
+        jenisId,
+        Array.from(selectedRows),
+        batchUpdateColumn,
+        batchUpdateValue,
+        userId
+      );
+
+      if (result.success) {
+        toast({
+          variant: "success",
+          title: "Berhasil!",
+          description: `${selectedRows.size} data berhasil diupdate.`,
+        });
+
+        // Update rows state dengan nilai baru
+        setRows(rows.map(row => {
+          if (selectedRows.has(row.id)) {
+            return { ...row, [batchUpdateColumn]: batchUpdateValue };
+          }
+          return row;
+        }));
+
+        // Reset batch update form
+        setBatchUpdateColumn("");
+        setBatchUpdateValue("");
+        setShowBatchUpdate(false);
+        
+        router.refresh();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Gagal",
+          description: result.message || "Gagal update kolom.",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Terjadi kesalahan saat update kolom.",
+      });
+    } finally {
+      setIsUpdatingColumn(false);
+    }
+  };
+
   // --- KEYBOARD SHORTCUTS ---
   const handleKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement>,
@@ -358,41 +441,130 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
   return (
     <Card>
       <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-slate-900 flex items-center gap-2">
-            <span className="text-lg">Edit {rows.length} Data</span>
-          </CardTitle>
-          
-          <div className="flex gap-2">
-            {selectedRows.size > 0 && (
+        <div className="flex flex-col gap-4">
+          {/* Header Row 1: Title and Main Actions */}
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-slate-900 flex items-center gap-2">
+              <span className="text-lg">Edit {rows.length} Data</span>
+              {selectedRows.size > 0 && (
+                <span className="text-sm font-normal text-blue-600">
+                  ({selectedRows.size} dipilih)
+                </span>
+              )}
+            </CardTitle>
+            
+            <div className="flex gap-2">
+              {selectedRows.size > 0 && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowBatchUpdate(!showBatchUpdate)}
+                    className="gap-2 border-green-300 text-green-700 hover:bg-green-50"
+                  >
+                    <RefreshCw size={16} />
+                    Batch Update
+                  </Button>
+                  
+                  <Button
+                    variant="destructive"
+                    onClick={handleDeleteSelected}
+                    disabled={isDeleting}
+                    className="gap-2"
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="animate-spin" size={16} />
+                    ) : (
+                      <Trash2 size={16} />
+                    )}
+                    Hapus {selectedRows.size}
+                  </Button>
+                </>
+              )}
+              
               <Button
-                variant="destructive"
-                onClick={handleDeleteSelected}
-                disabled={isDeleting}
-                className="gap-2"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="gap-2 bg-blue-600"
               >
-                {isDeleting ? (
+                {isSaving ? (
                   <Loader2 className="animate-spin" size={16} />
                 ) : (
-                  <Trash2 size={16} />
+                  <Save size={16} />
                 )}
-                Hapus {selectedRows.size} Dipilih
+                Simpan Semua
               </Button>
-            )}
-            
-            <Button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="gap-2 bg-blue-600"
-            >
-              {isSaving ? (
-                <Loader2 className="animate-spin" size={16} />
-              ) : (
-                <Save size={16} />
-              )}
-              Simpan Semua
-            </Button>
+            </div>
           </div>
+
+          {/* Header Row 2: Batch Update Form (conditional) */}
+          {showBatchUpdate && selectedRows.size > 0 && (
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <label className="text-xs font-medium text-slate-600 mb-1 block">
+                    Pilih Kolom
+                  </label>
+                  <Select
+                    value={batchUpdateColumn}
+                    onValueChange={setBatchUpdateColumn}
+                  >
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="Pilih kolom..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="prefix">Prefix</SelectItem>
+                      <SelectItem value="nomor_arsip">Nomor Arsip</SelectItem>
+                      {schema.map((col) => (
+                        <SelectItem key={col.id} value={col.namaKolom}>
+                          {col.labelKolom}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex-1">
+                  <label className="text-xs font-medium text-slate-600 mb-1 block">
+                    Nilai Baru
+                  </label>
+                  <Input
+                    type={
+                      schema.find(s => s.namaKolom === batchUpdateColumn)?.tipeData === "DATE"
+                        ? "date"
+                        : schema.find(s => s.namaKolom === batchUpdateColumn)?.tipeData === "INTEGER"
+                          ? "number"
+                          : "text"
+                    }
+                    value={batchUpdateValue}
+                    onChange={(e) => setBatchUpdateValue(e.target.value)}
+                    placeholder="Masukkan nilai..."
+                    className="bg-white"
+                  />
+                </div>
+
+                <Button
+                  onClick={handleBatchUpdateColumn}
+                  disabled={isUpdatingColumn || !batchUpdateColumn}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {isUpdatingColumn ? (
+                    <>
+                      <Loader2 className="animate-spin mr-2" size={16} />
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="mr-2" size={16} />
+                      Update {selectedRows.size} Data
+                    </>
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
+                💡 Kolom yang dipilih akan diisi dengan nilai yang sama untuk semua {selectedRows.size} data yang diceklis
+              </p>
+            </div>
+          )}
         </div>
       </CardHeader>
       

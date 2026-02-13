@@ -173,3 +173,70 @@ export async function deleteBatchRows(jenisId: number, rowIds: number[], userId:
     };
   }
 }
+
+// Batch update column values for selected rows
+export async function batchUpdateColumn(
+  jenisId: number,
+  rowIds: number[],
+  columnName: string,
+  value: string,
+  userId: number
+) {
+  try {
+    if (!rowIds || rowIds.length === 0) {
+      throw new Error("Tidak ada data yang dipilih");
+    }
+
+    const jenis = await db.query.jenisArsip.findFirst({
+      where: eq(jenisArsip.id, jenisId),
+    });
+
+    if (!jenis) {
+      throw new Error("Jenis arsip tidak ditemukan");
+    }
+
+    const tableName = jenis.namaTabel;
+
+    if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+      throw new Error("Nama tabel tidak valid");
+    }
+
+    // Validate column name
+    if (!/^[a-zA-Z0-9_]+$/.test(columnName)) {
+      throw new Error("Nama kolom tidak valid");
+    }
+
+    // Update each selected row
+    const escapedValue = typeof value === "string" 
+      ? `'${value.replace(/'/g, "''")}'` 
+      : (value ?? "NULL");
+
+    for (const id of rowIds) {
+      await db.run(
+        sql.raw(`
+          UPDATE ${tableName}
+          SET ${columnName} = ${escapedValue}
+          WHERE id = ${id}
+        `)
+      );
+
+      // Log activity
+      await db.run(
+        sql`INSERT INTO log_aktivitas (user_id, aksi, entity, entity_id, detail)
+        VALUES (${userId}, 'BATCH_UPDATE_COLUMN', ${tableName}, ${id}, ${`Updated ${columnName}`})`
+      );
+    }
+
+    revalidatePath("/arsip");
+    revalidatePath(`/arsip/jenis/${jenisId}/batch-edit`);
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error batchUpdateColumn:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Gagal update kolom",
+    };
+  }
+}
+
