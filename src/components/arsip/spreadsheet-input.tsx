@@ -599,7 +599,7 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
             {/* Prefix */}
             <div className="space-y-1">
               <Label className="text-xs font-semibold text-slate-600">
-                Prefix
+                Kode Arsip
               </Label>
               <Input
                 value={defaults["prefix"] || selectedJenis?.prefixKode || ""}
@@ -671,7 +671,7 @@ export function SpreadsheetInput({ jenisArsipList }: Props) {
                       }}
                     >
                       <div className="flex items-center justify-center">
-                        Prefix
+                        kode Arsip
                       </div>
                       <Resizer colId="prefix" />
                     </TableHead>

@@ -90,7 +90,7 @@ export default function JenisArsipForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nama.trim() || !prefixKode.trim()) {
-      alert("Nama Jenis dan Prefix Kode wajib diisi!");
+      alert("Nama Jenis dan Kode Arsip wajib diisi!");
       return;
     }
 
@@ -134,7 +134,7 @@ export default function JenisArsipForm() {
             {isEditMode ? "Edit Jenis Arsip" : "Buat Jenis Arsip Baru"}
           </h1>
           <p className="text-sm text-slate-500">
-            Prefix dan Nomor Arsip akan menjadi kolom terpisah pada tabel.
+            Kode dan Nomor Arsip akan menjadi kolom terpisah pada tabel.
           </p>
         </div>
       </div>
@@ -166,7 +166,7 @@ export default function JenisArsipForm() {
                 
                 <div className="space-y-1">
                   <Label className="text-xs font-semibold text-slate-500 uppercase">
-                    Prefix Kode <span className="text-red-500">*</span>
+                    Kode Arsip <span className="text-red-500">*</span>
                   </Label>
                   <Input 
                     value={prefixKode}
@@ -177,7 +177,7 @@ export default function JenisArsipForm() {
                     required
                   />
                   <p className="text-xs text-slate-400 mt-1">
-                    Prefix akan menjadi kolom terpisah di input arsip
+                    Kode arsip akan menjadi kolom terpisah di input arsip
                   </p>
                 </div>
                 
@@ -219,7 +219,7 @@ export default function JenisArsipForm() {
              <CardContent className="p-6">
                 <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-xs text-blue-700 font-medium">
-                    ℹ️ Kolom "Prefix" dan "Nomor Arsip" akan otomatis menjadi kolom terpisah saat input arsip.
+                    ℹ️ Kolom "Kode Arsip" dan "Nomor Arsip" akan otomatis menjadi kolom terpisah saat input arsip.
                     Anda tidak perlu menambahkan kolom tersebut di sini.
                   </p>
                 </div>

@@ -249,7 +249,7 @@ export async function saveJenisArsip(prevState: any, formData: FormData) {
     if (error.message?.includes("UNIQUE")) {
       return {
         success: false,
-        message: "Nama jenis / prefix sudah digunakan.",
+        message: "Nama jenis / Kode arsip sudah digunakan.",
       };
     }
 

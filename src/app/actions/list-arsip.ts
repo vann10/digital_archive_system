@@ -76,7 +76,7 @@ export async function getArsipList(
     const systemColumns = [
       {
         nama_kolom: 'prefix',
-        label_kolom: 'Prefix',
+        label_kolom: 'Kode Arsip',
         tipe_data: 'TEXT',
         is_visible_list: 1, // Pastikan tipe datanya sama dengan database (integer 1/0 atau boolean)
         urutan: -2

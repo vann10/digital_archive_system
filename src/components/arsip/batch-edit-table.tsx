@@ -440,7 +440,7 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
 
   return (
     <Card>
-      <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
+      <CardHeader className="border-b border-blue-100">
         <div className="flex flex-col gap-4">
           {/* Header Row 1: Title and Main Actions */}
           <div className="flex items-center justify-between">
@@ -512,7 +512,7 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
                       <SelectValue placeholder="Pilih kolom..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="prefix">Prefix</SelectItem>
+                      <SelectItem value="prefix">Kode Arsip</SelectItem>
                       <SelectItem value="nomor_arsip">Nomor Arsip</SelectItem>
                       {schema.map((col) => (
                         <SelectItem key={col.id} value={col.namaKolom}>
@@ -595,14 +595,14 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
 
                 {/* Prefix */}
                 <TableHead
-                  className="text-center font-semibold text-slate-700 bg-green-50 border-r border-slate-200 py-2 relative"
+                  className="text-center font-semibold text-slate-700 bg-slate-50 border-r border-slate-200 py-2 relative"
                   style={{
                     width: colWidths["prefix"],
                     minWidth: colWidths["prefix"],
                     maxWidth: colWidths["prefix"],
                   }}
                 >
-                  <div className="flex items-center justify-center">Prefix</div>
+                  <div className="flex items-center justify-center">Kode Arsip</div>
                   <Resizer colId="prefix" />
                 </TableHead>
 
