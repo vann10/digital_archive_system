@@ -35,7 +35,6 @@ import { useFormStatus } from "react-dom";
 type User = {
   id: number;
   username: string;
-  password: string;
   role: "admin" | "staff" | "viewer" | string;
 };
 
@@ -50,11 +49,6 @@ function SubmitButton() {
 
 export default function UserTableClient({ initialUsers }: { initialUsers: User[] }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [showPassword, setShowPassword] = useState<Record<number, boolean>>({});
-
-  const togglePassword = (id: number) => {
-    setShowPassword((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
 
   const handleCreate = async (formData: FormData) => {
     const res = await createUser(null, formData);
@@ -77,7 +71,7 @@ export default function UserTableClient({ initialUsers }: { initialUsers: User[]
       case "admin":
         return <Badge className="bg-red-500 hover:bg-red-600">Admin</Badge>;
       case "staff":
-        return <Badge className="bg-blue-500 hover:bg-blue-600">Staff</Badge>;
+        return <Badge className="bg-green-500 hover:bg-green-600">Staff</Badge>;
       default:
         return <Badge variant="secondary">Viewer</Badge>;
     }
@@ -162,7 +156,6 @@ export default function UserTableClient({ initialUsers }: { initialUsers: User[]
                 <TableHead className="w-16 font-semibold text-slate-700">No</TableHead>
                 <TableHead className="font-semibold text-slate-700">Username</TableHead>
                 <TableHead className="font-semibold text-slate-700">Role</TableHead>
-                <TableHead className="font-semibold text-slate-700">Password</TableHead>
                 <TableHead className="text-right font-semibold text-slate-700 w-24">Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -181,33 +174,9 @@ export default function UserTableClient({ initialUsers }: { initialUsers: User[]
                   <TableRow key={user.id} className="hover:bg-slate-50/50 transition-colors">
                     <TableCell className="font-medium text-slate-500">{index + 1}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                          <Shield className="h-4 w-4 text-white" />
-                        </div>
                         <span className="font-medium text-slate-900">{user.username}</span>
-                      </div>
                     </TableCell>
                     <TableCell>{getRoleBadge(user.role)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2.5">
-                        <span className="font-mono text-sm text-slate-700 bg-slate-50 px-2.5 py-1 rounded border border-slate-200">
-                          {showPassword[user.id] ? user.password : "••••••••"}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 hover:bg-slate-100"
-                          onClick={() => togglePassword(user.id)}
-                        >
-                          {showPassword[user.id] ? (
-                            <EyeOff className="h-4 w-4 text-slate-500" />
-                          ) : (
-                            <Eye className="h-4 w-4 text-slate-500" />
-                          )}
-                        </Button>
-                      </div>
-                    </TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="ghost"

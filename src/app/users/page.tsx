@@ -9,7 +9,6 @@ export default async function ManajemenUserPage() {
   const mappedUsers = users?.map(user => ({
     id: user.id,
     username: user.username,
-    password: user.password,
     role: user.role,
   })) || [];
 

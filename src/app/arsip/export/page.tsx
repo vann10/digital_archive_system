@@ -46,7 +46,7 @@ interface JenisArsip {
   nama: string;
   kode: string;
   deskripsi: string | null;
-  totalData?: number;
+  jumlahData?: number;
 }
 
 export default function ExportArsipPage() {
@@ -210,7 +210,7 @@ export default function ExportArsipPage() {
                 </CardTitle>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs font-medium px-2 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                    {jenis.totalData || 0} Data
+                    {jenis.jumlahData || 0} Data
                   </span>
                 </div>
                 <CardDescription className="line-clamp-2">

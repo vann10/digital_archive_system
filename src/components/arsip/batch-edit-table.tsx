@@ -26,14 +26,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/src/components/ui/select";
+import { Save, Trash2, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import {
-  Save,
-  Trash2,
-  Loader2,
-  AlertCircle,
-  RefreshCw,
-} from "lucide-react";
-import { saveBatchEdit, deleteBatchRows, batchUpdateColumn as batchUpdateColumnAction } from "@/src/app/actions/batch-edit-arsip";
+  saveBatchEdit,
+  deleteBatchRows,
+  batchUpdateColumn as batchUpdateColumnAction,
+} from "@/src/app/actions/batch-edit-arsip";
 import { useToast } from "@/src/hooks/use-toast";
 
 type SchemaConfig = {
@@ -41,8 +39,8 @@ type SchemaConfig = {
   jenisId: number;
   namaKolom: string;
   labelKolom: string;
-  tipeData: string;
-  isVisibleList: boolean;
+  tipeData: string | null;
+  isVisibleList: boolean | null;
   urutan: number | null;
 };
 
@@ -71,13 +69,13 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [colWidths, setColWidths] = useState<Record<string, number>>({});
-  
+
   // State untuk batch update column
   const [showBatchUpdate, setShowBatchUpdate] = useState(false);
   const [batchUpdateColumn, setBatchUpdateColumn] = useState<string>("");
   const [batchUpdateValue, setBatchUpdateValue] = useState<string>("");
   const [isUpdatingColumn, setIsUpdatingColumn] = useState(false);
-  
+
   const userId = 5; // Adjust according to your auth system
 
   // Refs for resizing
@@ -93,7 +91,7 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
     newWidths["select"] = 50;
     newWidths["prefix"] = 120;
     newWidths["nomor_arsip"] = 120;
-    
+
     schema.forEach((col) => {
       if (col.namaKolom === "uraian" || col.namaKolom === "keterangan") {
         newWidths[col.id.toString()] = 300;
@@ -101,7 +99,7 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
         newWidths[col.id.toString()] = DEFAULT_DYNAMIC_WIDTH;
       }
     });
-    
+
     setColWidths(newWidths);
   }, [schema]);
 
@@ -168,7 +166,7 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
     if (selectedRows.size === rows.length) {
       setSelectedRows(new Set());
     } else {
-      setSelectedRows(new Set(rows.map(r => r.id)));
+      setSelectedRows(new Set(rows.map((r) => r.id)));
     }
   };
 
@@ -176,7 +174,7 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
     setIsSaving(true);
     try {
       const result = await saveBatchEdit(jenisId, rows, userId);
-      
+
       if (result.success) {
         toast({
           variant: "success",
@@ -221,7 +219,7 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
       const result = await deleteBatchRows(
         jenisId,
         Array.from(selectedRows),
-        userId
+        userId,
       );
 
       if (result.success) {
@@ -230,9 +228,9 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
           title: "Berhasil!",
           description: `${selectedRows.size} data berhasil dihapus.`,
         });
-        
+
         // Remove deleted rows from state
-        setRows(rows.filter(r => !selectedRows.has(r.id)));
+        setRows(rows.filter((r) => !selectedRows.has(r.id)));
         setSelectedRows(new Set());
       } else {
         toast({
@@ -278,7 +276,7 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
         Array.from(selectedRows),
         batchUpdateColumn,
         batchUpdateValue,
-        userId
+        userId,
       );
 
       if (result.success) {
@@ -289,18 +287,20 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
         });
 
         // Update rows state dengan nilai baru
-        setRows(rows.map(row => {
-          if (selectedRows.has(row.id)) {
-            return { ...row, [batchUpdateColumn]: batchUpdateValue };
-          }
-          return row;
-        }));
+        setRows(
+          rows.map((row) => {
+            if (selectedRows.has(row.id)) {
+              return { ...row, [batchUpdateColumn]: batchUpdateValue };
+            }
+            return row;
+          }),
+        );
 
         // Reset batch update form
         setBatchUpdateColumn("");
         setBatchUpdateValue("");
         setShowBatchUpdate(false);
-        
+
         router.refresh();
       } else {
         toast({
@@ -324,103 +324,107 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
   const handleKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement>,
     rowIndex: number,
-    colKey: string
+    colKey: string,
   ) => {
-    const allCols = ['prefix', 'nomor_arsip', ...schema.map(s => s.namaKolom)];
+    const allCols = [
+      "prefix",
+      "nomor_arsip",
+      ...schema.map((s) => s.namaKolom),
+    ];
     const currentColIndex = allCols.indexOf(colKey);
-    
+
     // Enter: move to next row, same column
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       if (rowIndex < rows.length - 1) {
         const nextInput = document.querySelector(
-          `input[data-row="${rowIndex + 1}"][data-col="${colKey}"]`
+          `input[data-row="${rowIndex + 1}"][data-col="${colKey}"]`,
         ) as HTMLInputElement;
         nextInput?.focus();
       }
     }
-    
+
     // Arrow Down: same as Enter
-    else if (e.key === 'ArrowDown') {
+    else if (e.key === "ArrowDown") {
       e.preventDefault();
       if (rowIndex < rows.length - 1) {
         const nextInput = document.querySelector(
-          `input[data-row="${rowIndex + 1}"][data-col="${colKey}"]`
+          `input[data-row="${rowIndex + 1}"][data-col="${colKey}"]`,
         ) as HTMLInputElement;
         nextInput?.focus();
       }
     }
-    
+
     // Arrow Up: move to previous row
-    else if (e.key === 'ArrowUp') {
+    else if (e.key === "ArrowUp") {
       e.preventDefault();
       if (rowIndex > 0) {
         const prevInput = document.querySelector(
-          `input[data-row="${rowIndex - 1}"][data-col="${colKey}"]`
+          `input[data-row="${rowIndex - 1}"][data-col="${colKey}"]`,
         ) as HTMLInputElement;
         prevInput?.focus();
       }
     }
-    
+
     // Arrow Right: move to next column
-    else if (e.key === 'ArrowRight') {
+    else if (e.key === "ArrowRight") {
       const input = e.currentTarget;
       if (input.selectionStart === input.value.length) {
         e.preventDefault();
         if (currentColIndex < allCols.length - 1) {
           const nextCol = allCols[currentColIndex + 1];
           const nextInput = document.querySelector(
-            `input[data-row="${rowIndex}"][data-col="${nextCol}"]`
+            `input[data-row="${rowIndex}"][data-col="${nextCol}"]`,
           ) as HTMLInputElement;
           nextInput?.focus();
         }
       }
     }
-    
+
     // Arrow Left: move to previous column
-    else if (e.key === 'ArrowLeft') {
+    else if (e.key === "ArrowLeft") {
       const input = e.currentTarget;
       if (input.selectionStart === 0) {
         e.preventDefault();
         if (currentColIndex > 0) {
           const prevCol = allCols[currentColIndex - 1];
           const prevInput = document.querySelector(
-            `input[data-row="${rowIndex}"][data-col="${prevCol}"]`
+            `input[data-row="${rowIndex}"][data-col="${prevCol}"]`,
           ) as HTMLInputElement;
           prevInput?.focus();
         }
       }
     }
-    
+
     // Tab: move to next column
-    else if (e.key === 'Tab' && !e.shiftKey) {
+    else if (e.key === "Tab" && !e.shiftKey) {
       e.preventDefault();
       if (currentColIndex < allCols.length - 1) {
         const nextCol = allCols[currentColIndex + 1];
         const nextInput = document.querySelector(
-          `input[data-row="${rowIndex}"][data-col="${nextCol}"]`
+          `input[data-row="${rowIndex}"][data-col="${nextCol}"]`,
         ) as HTMLInputElement;
         nextInput?.focus();
       } else if (rowIndex < rows.length - 1) {
         const nextInput = document.querySelector(
-          `input[data-row="${rowIndex + 1}"][data-col="${allCols[0]}"]`
+          `input[data-row="${rowIndex + 1}"][data-col="${allCols[0]}"]`,
         ) as HTMLInputElement;
         nextInput?.focus();
       }
     }
-    
+
     // Shift+Tab: move to previous column
-    else if (e.key === 'Tab' && e.shiftKey) {
+    else if (e.key === "Tab" && e.shiftKey) {
       e.preventDefault();
       if (currentColIndex > 0) {
         const prevCol = allCols[currentColIndex - 1];
         const prevInput = document.querySelector(
-          `input[data-row="${rowIndex}"][data-col="${prevCol}"]`
+          `input[data-row="${rowIndex}"][data-col="${prevCol}"]`,
         ) as HTMLInputElement;
         prevInput?.focus();
       } else if (rowIndex > 0) {
         const prevInput = document.querySelector(
-          `input[data-row="${rowIndex - 1}"][data-col="${allCols[allCols.length - 1]}"]`
+          `input[data-row="${rowIndex - 1}"][data-col="${allCols[allCols.length - 1]}"]`,
         ) as HTMLInputElement;
         prevInput?.focus();
       }
@@ -452,7 +456,7 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
                 </span>
               )}
             </CardTitle>
-            
+
             <div className="flex gap-2">
               {selectedRows.size > 0 && (
                 <>
@@ -464,7 +468,7 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
                     <RefreshCw size={16} />
                     Batch Update
                   </Button>
-                  
+
                   <Button
                     variant="destructive"
                     onClick={handleDeleteSelected}
@@ -480,7 +484,7 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
                   </Button>
                 </>
               )}
-              
+
               <Button
                 onClick={handleSave}
                 disabled={isSaving}
@@ -529,9 +533,11 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
                   </label>
                   <Input
                     type={
-                      schema.find(s => s.namaKolom === batchUpdateColumn)?.tipeData === "DATE"
+                      schema.find((s) => s.namaKolom === batchUpdateColumn)
+                        ?.tipeData === "DATE"
                         ? "date"
-                        : schema.find(s => s.namaKolom === batchUpdateColumn)?.tipeData === "INTEGER"
+                        : schema.find((s) => s.namaKolom === batchUpdateColumn)
+                              ?.tipeData === "INTEGER"
                           ? "number"
                           : "text"
                     }
@@ -561,13 +567,14 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
                 </Button>
               </div>
               <p className="text-xs text-slate-500 mt-2">
-                💡 Kolom yang dipilih akan diisi dengan nilai yang sama untuk semua {selectedRows.size} data yang diceklis
+                💡 Kolom yang dipilih akan diisi dengan nilai yang sama untuk
+                semua {selectedRows.size} data yang diceklis
               </p>
             </div>
           )}
         </div>
       </CardHeader>
-      
+
       <CardContent className="p-0">
         <div className="overflow-auto max-h-[600px]">
           <Table
@@ -587,7 +594,9 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
                 >
                   <div className="flex items-center justify-center">
                     <Checkbox
-                      checked={selectedRows.size === rows.length && rows.length > 0}
+                      checked={
+                        selectedRows.size === rows.length && rows.length > 0
+                      }
                       onCheckedChange={toggleAllRows}
                     />
                   </div>
@@ -602,7 +611,9 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
                     maxWidth: colWidths["prefix"],
                   }}
                 >
-                  <div className="flex items-center justify-center">Kode Arsip</div>
+                  <div className="flex items-center justify-center">
+                    Kode Arsip
+                  </div>
                   <Resizer colId="prefix" />
                 </TableHead>
 
@@ -666,7 +677,11 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
                       className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-green-500 h-9 rounded-sm bg-transparent text-slate-700 w-full font-mono uppercase text-center font-semibold"
                       value={row["prefix"] || ""}
                       onChange={(e) =>
-                        handleInputChange(index, "prefix", e.target.value.toUpperCase())
+                        handleInputChange(
+                          index,
+                          "prefix",
+                          e.target.value.toUpperCase(),
+                        )
                       }
                       onKeyDown={(e) => handleKeyDown(e, index, "prefix")}
                     />
@@ -706,9 +721,15 @@ export function BatchEditTable({ jenisId, jenis, schema, initialData }: Props) {
                         className="border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-blue-500 h-9 rounded-sm bg-transparent text-slate-700 w-full"
                         value={row[col.namaKolom] || ""}
                         onChange={(e) =>
-                          handleInputChange(index, col.namaKolom, e.target.value)
+                          handleInputChange(
+                            index,
+                            col.namaKolom,
+                            e.target.value,
+                          )
                         }
-                        onKeyDown={(e) => handleKeyDown(e, index, col.namaKolom)}
+                        onKeyDown={(e) =>
+                          handleKeyDown(e, index, col.namaKolom)
+                        }
                       />
                     </TableCell>
                   ))}

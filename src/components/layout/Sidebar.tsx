@@ -1,11 +1,10 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { cn } from '../../lib/utils';
-// IMPORT SERVER ACTIONS DI SINI
-import { getSession, logout } from '../../app/actions/auth'; 
+import React, { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { cn } from "../../lib/utils";
+import { getSession, logout } from "../../app/actions/auth";
 import {
   LayoutDashboard,
   FileText,
@@ -17,44 +16,42 @@ import {
   FolderOpen,
   Archive,
   LogOut,
-  Loader2
-} from 'lucide-react';
-import { useToast } from '@/src/hooks/use-toast'; 
+  Loader2,
+} from "lucide-react";
+import { useToast } from "@/src/hooks/use-toast";
 
-// ... (Definisi menuItems TETAP SAMA, tidak perlu diubah) ...
 const menuItems = [
-  // ... items ...
   {
-    title: 'Dashboard',
-    href: '/dashboard',
+    title: "Dashboard",
+    href: "/dashboard",
     icon: LayoutDashboard,
   },
   {
-    title: 'Daftar Arsip',
-    href: '/arsip',
+    title: "Daftar Arsip",
+    href: "/arsip",
     icon: FileText,
   },
   {
-    title: 'Manajemen Arsip',
-    href: '#', 
+    title: "Manajemen Arsip",
+    href: "#",
     icon: FolderOpen,
     submenu: [
-      { title: 'Input Arsip', href: '/arsip/input' },
-      { title: 'Kelola Jenis', href: '/arsip/jenis' },
+      { title: "Input Arsip", href: "/arsip/input" },
+      { title: "Kelola Jenis", href: "/arsip/jenis" },
     ],
   },
   {
-    title: 'Import/Export',
-    href: '#',
+    title: "Import/Export",
+    href: "#",
     icon: UploadCloud,
     submenu: [
-      { title: 'Import CSV', href: '/arsip/import' },
-      { title: 'Export Data', href: '/arsip/export' },
+      { title: "Import CSV", href: "/arsip/import" },
+      { title: "Export Data", href: "/arsip/export" },
     ],
   },
   {
-    title: 'Manajemen User',
-    href: '/users',
+    title: "Manajemen User",
+    href: "/users",
     icon: Users,
   },
 ];
@@ -64,24 +61,20 @@ export function Sidebar() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [user, setUser] = useState<{ username: string; role: string } | null>(null);
+  const [user, setUser] = useState<{ username: string; role: string } | null>(
+    null,
+  );
   const [isLoadingUser, setIsLoadingUser] = useState(true);
-
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
 
-  // -- 1. FETCH USER DATA (Menggunakan Server Action) --
+  // -- 1. FETCH USER DATA --
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        // Panggil Server Action langsung, bukan fetch API URL
         const userData = await getSession();
-        
         if (userData) {
           setUser(userData);
-        } else {
-          // Jika tidak ada session (null), redirect ke login
-          // router.push('/'); 
         }
       } catch (error) {
         console.error("Gagal mengambil data user:", error);
@@ -89,21 +82,29 @@ export function Sidebar() {
         setIsLoadingUser(false);
       }
     };
-
     fetchUser();
   }, []);
 
-  // -- 2. LOGIKA LOGOUT (Menggunakan Server Action) --
+  // -- 2. FILTER MENU BERDASARKAN ROLE (Opsi Kedua) --
+  const filteredMenuItems = useMemo(() => {
+    // Jika masih loading, kita sembunyikan menu sensitif dulu agar tidak berkedip
+    if (isLoadingUser)
+      return menuItems.filter((item) => item.title !== "Manajemen User");
+
+    return menuItems.filter((item) => {
+      if (item.title === "Manajemen User") {
+        return user?.role === "admin";
+      }
+      return true;
+    });
+  }, [user, isLoadingUser]);
+
+  // -- 3. LOGIKA LOGOUT --
   const handleLogout = async () => {
-    try {
-      setIsLoadingUser(true);
-      await logout(); // Panggil Server Action langsung
-      // Server action akan melakukan redirect, jadi kode di bawah ini 
-      // mungkin tidak tereksekusi jika redirect berhasil, tapi aman untuk UX.
-    } catch (error) {
-      console.error("Logout error:", error);
-      toast({ variant: "destructive", title: "Gagal Logout" });
-      setIsLoadingUser(false);
+    const res = await logout();
+
+    if (res?.success) {
+      router.push("/");
     }
   };
 
@@ -112,7 +113,7 @@ export function Sidebar() {
     if (!isCollapsed) setOpenSubmenu(null);
   };
 
-  const handleMenuClick = (item: typeof menuItems[0]) => {
+  const handleMenuClick = (item: any) => {
     if (item.submenu) {
       if (isCollapsed) {
         setIsCollapsed(false);
@@ -129,54 +130,63 @@ export function Sidebar() {
     <div
       className={cn(
         "h-screen bg-[#0F172A] text-white flex flex-col transition-all duration-300 border-r border-slate-800 relative shadow-xl overflow-hidden",
-        isCollapsed ? "w-16" : "w-56"
+        isCollapsed ? "w-16" : "w-56",
       )}
     >
       {/* HEADER */}
-      <div className={cn(
-        "h-[60px] flex items-center px-3 border-b border-slate-800/50 relative transition-all duration-300",
-        isCollapsed ? "justify-center" : "justify-between group"
-      )}>
+      <div
+        className={cn(
+          "h-[60px] flex items-center px-3 border-b border-slate-800/50 relative transition-all duration-300",
+          isCollapsed ? "justify-center" : "justify-between group",
+        )}
+      >
         {isCollapsed ? (
           <button
             onClick={toggleSidebar}
-            className="relative group/mini flex items-center justify-center w-9 h-9 rounded-lg transition-all"
+            className="relative group/mini flex items-center justify-center w-9 h-9 rounded-lg"
           >
-             <div className="absolute inset-0 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-900/20 transition-all duration-300 transform scale-100 opacity-100 group-hover/mini:scale-90 group-hover/mini:opacity-0">
-               <Archive className="w-5 h-5 text-white" />
+            <div className="absolute inset-0 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg transition-all group-hover/mini:opacity-0">
+              <Archive className="w-5 h-5 text-white" />
             </div>
-            <div className="absolute inset-0 bg-slate-800 rounded-lg border border-slate-600 flex items-center justify-center transition-all duration-300 transform scale-90 opacity-0 group-hover/mini:scale-100 group-hover/mini:opacity-100 text-slate-300 hover:text-white hover:border-blue-500 hover:bg-slate-700">
-               <ChevronRight size={20} />
+            <div className="absolute inset-0 bg-slate-800 rounded-lg border border-slate-600 flex items-center justify-center opacity-0 group-hover/mini:opacity-100 text-slate-300">
+              <ChevronRight size={20} />
             </div>
           </button>
         ) : (
           <>
-             <div className="flex items-center gap-2.5 w-full">
-                <div className="flex-shrink-0 w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-900/20">
-                  <Archive className="w-5 h-5 text-white" />
-                </div>
-                <div className="flex flex-col overflow-hidden whitespace-nowrap">
-                  <span className="font-bold text-sm tracking-wide text-slate-100">Arsip Digital</span>
-                  <span className="text-[9px] text-slate-400 font-medium tracking-wider uppercase">Dinas Sosial</span>
-                </div>
-             </div>
-             <button
-                onClick={toggleSidebar}
-                className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-all duration-200"
-             >
-                <ChevronLeft size={18} />
-             </button>
+            <div className="flex items-center gap-2.5 w-full">
+              <div className="flex-shrink-0 w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg">
+                <Archive className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex flex-col overflow-hidden whitespace-nowrap">
+                <span className="font-bold text-sm tracking-wide text-slate-100">
+                  Arsip Digital
+                </span>
+                <span className="text-[9px] text-slate-400 font-medium tracking-wider uppercase">
+                  Dinas Sosial
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={toggleSidebar}
+              className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-all"
+            >
+              <ChevronLeft size={18} />
+            </button>
           </>
         )}
       </div>
 
       {/* MENU NAVIGASI */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-2 space-y-1">
-        {menuItems.map((item, index) => {
-          const isActive = pathname === item.href || (item.submenu && pathname.startsWith(item.href));
+        {filteredMenuItems.map((item, index) => {
+          const isActive =
+            pathname === item.href ||
+            (item.submenu && pathname.startsWith(item.href));
           const isSubOpen = openSubmenu === item.title;
           const hasSubmenu = item.submenu && item.submenu.length > 0;
-          const isChildActive = hasSubmenu && item.submenu?.some(sub => pathname === sub.href);
+          const isChildActive =
+            hasSubmenu && item.submenu?.some((sub) => pathname === sub.href);
 
           return (
             <div key={index}>
@@ -185,46 +195,53 @@ export function Sidebar() {
                 className={cn(
                   "flex items-center px-2.5 py-2.5 rounded-lg cursor-pointer transition-all duration-200 group relative select-none",
                   (isActive || isChildActive) && !hasSubmenu
-                    ? "bg-blue-600 text-white shadow-md shadow-blue-900/20" 
+                    ? "bg-blue-600 text-white shadow-md shadow-blue-900/20"
                     : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-100",
-                   isCollapsed ? "justify-center" : "justify-between"
+                  isCollapsed ? "justify-center" : "justify-between",
                 )}
               >
                 <div className="flex items-center gap-2.5">
-                  <item.icon className={cn(
-                    "w-4 h-4 flex-shrink-0 transition-colors",
-                    (isActive || isChildActive) ? "text-white" : "text-slate-400 group-hover:text-slate-200"
-                  )} />
-                  
-                  <span className={cn(
-                    "text-[13px] font-medium transition-all duration-300 overflow-hidden whitespace-nowrap",
-                    isCollapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100 block"
-                  )}>
+                  <item.icon
+                    className={cn(
+                      "w-4 h-4 flex-shrink-0",
+                      isActive || isChildActive
+                        ? "text-white"
+                        : "text-slate-400 group-hover:text-slate-200",
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      "text-[13px] font-medium transition-all duration-300 overflow-hidden whitespace-nowrap",
+                      isCollapsed
+                        ? "w-0 opacity-0 hidden"
+                        : "w-auto opacity-100 block",
+                    )}
+                  >
                     {item.title}
                   </span>
                 </div>
-
                 {!isCollapsed && hasSubmenu && (
-                  <ChevronDown 
+                  <ChevronDown
                     className={cn(
-                      "w-3.5 h-3.5 text-slate-500 transition-transform duration-200", 
-                      isSubOpen ? "rotate-180" : ""
-                    )} 
+                      "w-3.5 h-3.5 transition-transform",
+                      isSubOpen ? "rotate-180" : "",
+                    )}
                   />
                 )}
               </div>
 
+              {/* Submenu Logic */}
               {!isCollapsed && hasSubmenu && (isSubOpen || isChildActive) && (
                 <div className="mt-0.5 ml-3 space-y-0.5 border-l border-slate-700 pl-2.5 animate-in slide-in-from-top-2 duration-200">
-                  {item.submenu.map((sub, subIndex) => (
+                  {item.submenu.map((sub: any, subIndex: number) => (
                     <Link
                       key={subIndex}
                       href={sub.href}
                       className={cn(
-                        "block px-2.5 py-1.5 rounded-md text-[13px] transition-colors relative",
+                        "block px-2.5 py-1.5 rounded-md text-[13px] transition-colors",
                         pathname === sub.href
                           ? "text-blue-400 bg-slate-800/50 font-medium"
-                          : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/30"
+                          : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/30",
                       )}
                     >
                       {sub.title}
@@ -239,11 +256,12 @@ export function Sidebar() {
 
       {/* FOOTER */}
       <div className="p-3 border-t border-slate-800/50 bg-[#0F172A]">
-        <div className={cn(
-          "flex items-center transition-all duration-300",
-          isCollapsed ? "justify-center" : "gap-2.5"
-        )}>
-          {/* Avatar / Inisial */}
+        <div
+          className={cn(
+            "flex items-center transition-all",
+            isCollapsed ? "justify-center" : "gap-2.5",
+          )}
+        >
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-md flex-shrink-0">
             {isLoadingUser ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -251,12 +269,13 @@ export function Sidebar() {
               user?.username?.substring(0, 2).toUpperCase() || "GU"
             )}
           </div>
-          
-          {/* Info User */}
-          <div className={cn(
-            "flex flex-col overflow-hidden transition-all duration-300 whitespace-nowrap",
-            isCollapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100"
-          )}>
+
+          <div
+            className={cn(
+              "flex flex-col overflow-hidden transition-all",
+              isCollapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100",
+            )}
+          >
             {isLoadingUser ? (
               <div className="space-y-1">
                 <div className="h-3 w-20 bg-slate-700 rounded animate-pulse" />
@@ -264,25 +283,23 @@ export function Sidebar() {
               </div>
             ) : (
               <>
-                <span className="text-[13px] font-semibold text-slate-200 truncate max-w-[120px]" title={user?.username || 'Guest'}>
-                  {user?.username || 'Guest User'}
+                <span className="text-[13px] font-semibold text-slate-200 truncate max-w-[120px]">
+                  {user?.username || "Guest User"}
                 </span>
                 <span className="text-[10px] text-slate-500 capitalize">
-                  {user?.role || 'Viewer'}
+                  {user?.role || "Viewer"}
                 </span>
               </>
             )}
           </div>
 
-          {/* Tombol Logout */}
           {!isCollapsed && (
-             <button 
-               onClick={handleLogout}
-               className="ml-auto text-slate-500 hover:text-red-400 hover:bg-red-900/20 p-1.5 rounded-md transition-all" 
-               title="Logout"
-             >
-               <LogOut size={16} />
-             </button>
+            <button
+              onClick={handleLogout}
+              className="ml-auto text-slate-500 hover:text-red-400 hover:bg-red-900/20 p-1.5 rounded-md transition-all"
+            >
+              <LogOut size={16} />
+            </button>
           )}
         </div>
       </div>

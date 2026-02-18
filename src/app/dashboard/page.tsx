@@ -6,7 +6,9 @@ import { StatsCards } from "@/src/components/dashboard/stats-card";
 import { BarChartCard } from "@/src/components/dashboard/bar-chart";
 import { PieChartCard } from "@/src/components/dashboard/pie-chart";
 import { Button } from "@/src/components/ui/button";
-import { Card, CardContent } from "@/src/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/card";
+import { BackupButton } from "@/src/components/dashboard/backup-button";
+import { ActivityLog } from "@/src/components/dashboard/activity-log";
 import {
   Plus,
   FileSpreadsheet,
@@ -16,7 +18,7 @@ import {
 } from "lucide-react";
 
 export default async function DashboardPage() {
-  const { stats, arsipPerBulan, jenisDistribution} =
+  const { stats, arsipPerBulan, jenisDistribution, logAktivitasList } =
     await getAllDashboardData();
 
   return (
@@ -31,13 +33,13 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* QUICK ACTIONS - NEW */}
+      {/* QUICK ACTIONS */}
       <Card className="border border-slate-200 shadow-sm bg-gradient-to-br from-blue-50 to-white">
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-slate-700">
-              Quick Actions
-            </h2>
+            <h2 className="text-sm font-semibold text-slate-700">Quick Actions</h2>
+            {/* Backup Button - hanya tampil untuk admin */}
+            <BackupButton />
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <Button
@@ -52,9 +54,7 @@ export default async function DashboardPage() {
                   </div>
                   <span className="font-semibold text-xs">Input Arsip</span>
                 </div>
-                <p className="text-[10px] text-slate-500 text-left">
-                  Tambah arsip baru
-                </p>
+                <p className="text-[10px] text-slate-500 text-left">Tambah arsip baru</p>
               </Link>
             </Button>
 
@@ -70,9 +70,7 @@ export default async function DashboardPage() {
                   </div>
                   <span className="font-semibold text-xs">Jenis Arsip</span>
                 </div>
-                <p className="text-[10px] text-slate-500 text-left">
-                  Kelola kategori
-                </p>
+                <p className="text-[10px] text-slate-500 text-left">Kelola kategori</p>
               </Link>
             </Button>
 
@@ -88,9 +86,7 @@ export default async function DashboardPage() {
                   </div>
                   <span className="font-semibold text-xs">Import</span>
                 </div>
-                <p className="text-[10px] text-slate-500 text-left">
-                  Import data dari CSV
-                </p>
+                <p className="text-[10px] text-slate-500 text-left">Import dari CSV</p>
               </Link>
             </Button>
 
@@ -106,9 +102,7 @@ export default async function DashboardPage() {
                   </div>
                   <span className="font-semibold text-xs">Export</span>
                 </div>
-                <p className="text-[10px] text-slate-500 text-left">
-                  Export ke Excel
-                </p>
+                <p className="text-[10px] text-slate-500 text-left">Export ke Excel</p>
               </Link>
             </Button>
           </div>
@@ -123,11 +117,14 @@ export default async function DashboardPage() {
         totalJenisArsip={stats.totalJenisArsip}
       />
 
-      {/* CHARTS */}
+      {/* CHARTS + ACTIVITY LOG */}
       <div className="grid gap-4 md:grid-cols-7 lg:grid-cols-7">
         <BarChartCard data={arsipPerBulan} />
         <PieChartCard data={jenisDistribution} />
       </div>
+
+      {/* LOG AKTIVITAS */}
+      <ActivityLog logs={logAktivitasList} />
     </div>
   );
 }

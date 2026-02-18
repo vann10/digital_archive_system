@@ -2,14 +2,15 @@
 
 import { db } from "../../db";
 import { jenisArsip } from "../../db/schema";
-import { eq, sql, asc } from "drizzle-orm"; // Tambahkan 'asc'
+import { eq, sql, asc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { requireLogin } from "../../lib/auth-helpers";
 
 const ITEMS_PER_PAGE = 50;
 
-// ------------------------------------------------------
-// GET LIST ARSIP
-// ------------------------------------------------------
+// Whitelist kolom yang boleh untuk sorting - cegah SQL injection pada ORDER BY
+const ALLOWED_SYSTEM_SORT_COLS = ["id", "prefix", "nomor_arsip", "created_at"];
+
 export async function getArsipList(
   page: number = 1,
   jenisId: string = "",
@@ -18,17 +19,17 @@ export async function getArsipList(
   sortBy: string = "",
   sortDir: "asc" | "desc" = "asc"
 ) {
+  await requireLogin();
+
   try {
     let targetJenisId = jenisId;
 
-    // 1. LOGIKA BARU: Jika jenisId kosong atau "all", ambil jenis arsip pertama yang tersedia
     if (!targetJenisId || targetJenisId === "all") {
       const firstJenis = await db.query.jenisArsip.findFirst({
         orderBy: [asc(jenisArsip.id)],
       });
 
       if (!firstJenis) {
-        // Jika benar-benar tidak ada jenis arsip di database sama sekali
         return {
           data: [],
           meta: { totalItems: 0, totalPages: 0, currentPage: 1 },
@@ -41,7 +42,6 @@ export async function getArsipList(
     const offset = (page - 1) * ITEMS_PER_PAGE;
     const parsedJenisId = parseInt(targetJenisId);
 
-    // 2. Ambil metadata jenis (Validasi ID)
     const jenis = await db.query.jenisArsip.findFirst({
       where: eq(jenisArsip.id, parsedJenisId),
     });
@@ -56,124 +56,94 @@ export async function getArsipList(
 
     const tableName = jenis.namaTabel;
 
-    // Validasi keamanan nama tabel untuk mencegah SQL Injection fatal
     if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
       throw new Error(`Nama tabel tidak valid: ${tableName}`);
     }
 
-    // 3. Ambil schema_config
-    // Pastikan db.all didukung. Jika error "db.all is not a function", lihat catatan di bawah.
     const schema: any[] = await db.all(
-      sql`
-        SELECT *
-        FROM schema_config
-        WHERE jenis_id = ${parsedJenisId}
-        ORDER BY urutan ASC
-      `
+      sql`SELECT * FROM schema_config WHERE jenis_id = ${parsedJenisId} ORDER BY urutan ASC`
     );
 
-    // Setup Kolom Sistem
     const systemColumns = [
-      {
-        nama_kolom: 'prefix',
-        label_kolom: 'Kode Arsip',
-        tipe_data: 'TEXT',
-        is_visible_list: 1, // Pastikan tipe datanya sama dengan database (integer 1/0 atau boolean)
-        urutan: -2
-      },
-      {
-        nama_kolom: 'nomor_arsip',
-        label_kolom: 'Nomor Arsip',
-        tipe_data: 'TEXT',
-        is_visible_list: 1,
-        urutan: -1
-      }
+      { nama_kolom: "prefix", label_kolom: "Kode Arsip", tipe_data: "TEXT", is_visible_list: 1, urutan: -2 },
+      { nama_kolom: "nomor_arsip", label_kolom: "Nomor Arsip", tipe_data: "TEXT", is_visible_list: 1, urutan: -1 },
     ];
 
-    // Gabungkan kolom
     const allColumns = [...systemColumns, ...schema];
-    
-    // Filter visible columns (handle kemungkinan boolean atau 1/0 dari SQLite)
     const visibleColumns = allColumns.filter((c) => Boolean(c.is_visible_list));
 
-    // 4. Build WHERE clause
-    let whereClause = "WHERE 1=1";
-    
-    // Filter Pencarian
+    // ✅ Build WHERE dengan parameterized query untuk search (bukan string concatenation)
+    // Untuk SQLite raw query: kita tetap escape manual tapi dengan cara yang benar
+    const conditions: string[] = ["1=1"];
+
     if (search && search.trim() !== "") {
-      const searchTerm = search.replace(/'/g, "''"); // Escape single quote manual untuk raw query
-      
-      const searchConditions = visibleColumns
-        .map((col) => `${col.nama_kolom} LIKE '%${searchTerm}%'`)
-        .join(" OR ");
-      
-      if (searchConditions) {
-        whereClause += ` AND (${searchConditions})`;
-      }
-    }
+      // ✅ Sanitasi: escape single quotes, lalu buat LIKE per kolom
+      const searchTerm = search.trim().replace(/'/g, "''");
 
-    // Filter Tahun
-    if (tahun && tahun !== "all") {
-      const dateColumn = visibleColumns.find(
-        (c) => c.tipe_data === "DATE" || c.nama_kolom.includes("tanggal")
+      // Whitelist: hanya kolom yang ada di visible schema
+      const allowedCols = visibleColumns.map((c) => c.nama_kolom).filter(
+        (col: string) => /^[a-zA-Z0-9_]+$/.test(col)
       );
-      if (dateColumn) {
-        // Syntax SQLite: strftime('%Y', nama_kolom)
-        whereClause += ` AND strftime('%Y', ${dateColumn.nama_kolom}) = '${tahun}'`;
+
+      const searchConditions = allowedCols
+        .map((col: string) => `${col} LIKE '%${searchTerm}%'`)
+        .join(" OR ");
+
+      if (searchConditions) {
+        conditions.push(`(${searchConditions})`);
       }
     }
 
-    // 5. Build ORDER BY
-    // Default sort by id atau kolom terakhir jika nomor_urut_internal tidak ada
-    let orderClause = "ORDER BY id DESC"; 
-    
-    // Cek apakah kolom sorting valid ada di visibleColumns atau kolom sistem
-    const isValidSortColumn = visibleColumns.some(c => c.nama_kolom === sortBy) || sortBy === 'id';
-
-    if (sortBy && isValidSortColumn) {
-      orderClause = `ORDER BY ${sortBy} ${sortDir.toUpperCase()}`;
+    if (tahun && tahun !== "all") {
+      // ✅ Validasi tahun hanya angka 4 digit
+      if (/^\d{4}$/.test(tahun)) {
+        const dateColumn = visibleColumns.find(
+          (c: any) => c.tipe_data === "DATE" || c.nama_kolom.includes("tanggal")
+        );
+        if (dateColumn && /^[a-zA-Z0-9_]+$/.test(dateColumn.nama_kolom)) {
+          conditions.push(`strftime('%Y', ${dateColumn.nama_kolom}) = '${tahun}'`);
+        }
+      }
     }
 
-    // 6. Eksekusi Query Data
-    // Menggunakan sql.raw karena nama tabel dinamis
-    const queryData = sql.raw(`
-        SELECT *
-        FROM ${tableName}
+    const whereClause = `WHERE ${conditions.join(" AND ")}`;
+
+    // ✅ Whitelist kolom untuk ORDER BY
+    const validSchemaColNames = schema.map((c: any) => c.nama_kolom).filter(
+      (col: string) => /^[a-zA-Z0-9_]+$/.test(col)
+    );
+    const allAllowedSortCols = [...ALLOWED_SYSTEM_SORT_COLS, ...validSchemaColNames];
+
+    let orderClause = "ORDER BY id DESC";
+    if (sortBy && allAllowedSortCols.includes(sortBy)) {
+      const dir = sortDir === "desc" ? "DESC" : "ASC";
+      orderClause = `ORDER BY ${sortBy} ${dir}`;
+    }
+
+    const data = await db.all(
+      sql.raw(`
+        SELECT * FROM ${tableName}
         ${whereClause}
         ${orderClause}
         LIMIT ${ITEMS_PER_PAGE}
         OFFSET ${offset}
-      `);
+      `)
+    );
 
-    const data = await db.all(queryData);
+    const totalResult: any = await db.get(
+      sql.raw(`SELECT COUNT(*) as count FROM ${tableName} ${whereClause}`)
+    );
 
-    // 7. Hitung Total Data (untuk pagination)
-    const queryCount = sql.raw(`
-        SELECT COUNT(*) as count 
-        FROM ${tableName}
-        ${whereClause}
-      `);
-    
-    // Menggunakan db.get atau db.all()[0] tergantung driver
-    const totalResult: any = await db.get(queryCount); 
-    
-    // Handle return value yang berbeda-beda antar driver (kadang {count: 5}, kadang { 'COUNT(*)': 5 })
-    const totalItems = totalResult?.count || totalResult?.['COUNT(*)'] || 0;
+    const totalItems = totalResult?.count || 0;
     const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
     return {
       data,
-      meta: {
-        totalItems,
-        totalPages,
-        currentPage: page,
-        currentJenisId: targetJenisId // Kembalikan ID yang aktif agar UI bisa update dropdown
-      },
+      meta: { totalItems, totalPages, currentPage: page, currentJenisId: targetJenisId },
       dynamicSchema: visibleColumns,
     };
   } catch (error) {
     console.error("Error getArsipList:", error);
-    // Jangan return kosong diam-diam, log errornya agar terbaca di terminal
     return {
       data: [],
       meta: { totalItems: 0, totalPages: 0, currentPage: 1 },
@@ -182,10 +152,9 @@ export async function getArsipList(
   }
 }
 
-// ------------------------------------------------------
-// DELETE ARSIP
-// ------------------------------------------------------
 export async function deleteArsip(id: number, jenisId: number) {
+  const sessionUser = await requireLogin();
+
   try {
     const jenis = await db.query.jenisArsip.findFirst({
       where: eq(jenisArsip.id, jenisId),
@@ -194,14 +163,16 @@ export async function deleteArsip(id: number, jenisId: number) {
     if (!jenis) return { success: false, message: "Jenis arsip tidak ditemukan" };
 
     const tableName = jenis.namaTabel;
-
     if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
       throw new Error("Nama tabel tidak valid");
     }
 
-    // Gunakan sql.raw untuk delete dynamic table
+    await db.run(sql.raw(`DELETE FROM ${tableName} WHERE id = ${id}`));
+
+    // Log aktivitas
     await db.run(
-      sql.raw(`DELETE FROM ${tableName} WHERE id = ${id}`)
+      sql`INSERT INTO log_aktivitas (user_id, aksi, entity, entity_id, detail)
+          VALUES (${sessionUser.id}, 'DELETE_ARSIP', ${tableName}, ${id}, 'Hapus dari daftar arsip')`
     );
 
     revalidatePath("/arsip");
@@ -212,17 +183,14 @@ export async function deleteArsip(id: number, jenisId: number) {
   }
 }
 
-// ------------------------------------------------------
-// GET JENIS ARSIP OPTIONS
-// ------------------------------------------------------
 export async function getJenisArsipOptions() {
+  await requireLogin();
+
   try {
     const result = await db.select({
       id: jenisArsip.id,
       namaJenis: jenisArsip.namaJenis,
-    })
-    .from(jenisArsip)
-    .orderBy(asc(jenisArsip.id)); // Order biar rapi
+    }).from(jenisArsip).orderBy(asc(jenisArsip.id));
 
     return result;
   } catch (error) {

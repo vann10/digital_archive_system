@@ -4,27 +4,17 @@ import { db } from "../../db";
 import { jenisArsip, schemaConfig, defaultValues } from "../../db/schema";
 import { revalidatePath } from "next/cache";
 import { eq, sql, asc } from "drizzle-orm";
+import { requireLogin } from "../../lib/auth-helpers";
 
 export async function getJenisArsipWithSchema() {
-  // 1. Ambil data Jenis Arsip
+  await requireLogin();
+
   const jenis = await db.select().from(jenisArsip);
-
-  // 2. Ambil data Schema Config
-  const configs = await db
-    .select()
-    .from(schemaConfig)
-    .orderBy(asc(schemaConfig.urutan));
-
-  // 3. Ambil data Default Values
+  const configs = await db.select().from(schemaConfig).orderBy(asc(schemaConfig.urutan));
   const defaults = await db.select().from(defaultValues);
 
-  // 4. Gabungkan & BERSIHKAN DATA
   const result = jenis.map((j) => {
-    
-    // Filter config milik jenis ini
     const rawConfigs = configs.filter((c) => c.jenisId === j.id);
-
-    // Lakukan mapping untuk membuang nilai null
     const cleanConfigs = rawConfigs.map((c) => ({
       ...c,
       tipeData: c.tipeData ?? "TEXT",
@@ -33,35 +23,32 @@ export async function getJenisArsipWithSchema() {
       isRequired: c.isRequired ?? false,
       isVisibleList: c.isVisibleList ?? false,
       urutan: c.urutan ?? 0,
-      defaultValue: c.defaultValue ?? null
+      defaultValue: c.defaultValue ?? null,
     }));
 
-    // Filter default values untuk jenis ini
     const jenisDefaults = defaults.filter((d) => d.jenisId === j.id);
     const defaultsMap: Record<string, string> = {};
     jenisDefaults.forEach((d) => {
       defaultsMap[d.namaKolom] = d.nilaiDefault;
     });
 
-    return {
-      ...j,
-      schemaConfig: cleanConfigs,
-      defaultValues: defaultsMap,
-    };
+    return { ...j, schemaConfig: cleanConfigs, defaultValues: defaultsMap };
   });
 
   return result;
 }
 
-// --- SAVE DEFAULT VALUES ---
-export async function saveDefaultValues(jenisId: number, defaults: Record<string, string>) {
+export async function saveDefaultValues(
+  jenisId: number,
+  defaultsInput: Record<string, string>
+) {
+  await requireLogin();
+
   try {
-    // Hapus default values lama
     await db.delete(defaultValues).where(eq(defaultValues.jenisId, jenisId)).run();
 
-    // Insert default values baru
-    for (const [kolom, nilai] of Object.entries(defaults)) {
-      if (nilai && nilai.trim() !== '') {
+    for (const [kolom, nilai] of Object.entries(defaultsInput)) {
+      if (nilai && nilai.trim() !== "") {
         await db.insert(defaultValues).values({
           jenisId,
           namaKolom: kolom,
@@ -78,71 +65,29 @@ export async function saveDefaultValues(jenisId: number, defaults: Record<string
   }
 }
 
-async function getLastnomor_arsip(tableName: string): Promise<string> {
-  try {
-    const result = await db.get(
-      sql.raw(`
-        SELECT nomor_arsip 
-        FROM ${tableName} 
-        WHERE nomor_arsip GLOB '[0-9][0-9][0-9]*'
-        ORDER BY CAST(nomor_arsip AS INTEGER) DESC 
-        LIMIT 1
-      `)
-    ) as { nomor_arsip: string } | undefined;
+export async function saveBulkArsip(rows: any[], jenisId: number, userId?: number) {
+  // Verifikasi session di server action (tidak bergantung pada userId dari client)
+  const sessionUser = await requireLogin();
+  const verifiedUserId = sessionUser.id;
 
-    if (!result || !result.nomor_arsip) {
-      return "001";
-    }
-
-    // Parse nomor terakhir dan increment
-    const lastNumber = parseInt(result.nomor_arsip, 10);
-    const nextNumber = lastNumber + 1;
-    return String(nextNumber).padStart(3, '0');
-  } catch (error) {
-    // Jika tabel kosong atau error, mulai dari 001
-    return "001";
-  }
-}
-
-export async function saveBulkArsip(
-  rows: any[],
-  jenisId: number,
-  userId: number,
-) {
   if (!rows || rows.length === 0) {
     throw new Error("Tidak ada data untuk disimpan");
   }
 
-  // 1. Ambil metadata jenis
   const jenis = await db.query.jenisArsip.findFirst({
     where: eq(jenisArsip.id, jenisId),
   });
 
-  if (!jenis) {
-    throw new Error("Jenis arsip tidak ditemukan");
-  }
+  if (!jenis) throw new Error("Jenis arsip tidak ditemukan");
 
   const tableName = jenis.namaTabel;
-  const defaultPrefix = jenis.prefixKode;
 
-  // Validasi nama tabel sederhana untuk keamanan
   if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
     throw new Error("Nama tabel tidak valid");
   }
 
-  // 2. Ambil nomor urut internal terakhir (sebagai INTEGER untuk ID)
-  const lastNumberResult = (await db.get(
-    sql`SELECT COALESCE(MAX(id),0) as last FROM ${sql.raw(tableName)}`,
-  )) as { last: number } | undefined;
-
-  let currentNumber = Number(lastNumberResult?.last || 0);
-
-  // 3. Ambil default values dari tabel default_values
   const defaultsResult = await db
-    .select({
-      namaKolom: defaultValues.namaKolom,
-      nilaiDefault: defaultValues.nilaiDefault,
-    })
+    .select({ namaKolom: defaultValues.namaKolom, nilaiDefault: defaultValues.nilaiDefault })
     .from(defaultValues)
     .where(eq(defaultValues.jenisId, jenisId));
 
@@ -151,64 +96,56 @@ export async function saveBulkArsip(
     if (r.nilaiDefault) defaultMap[r.namaKolom] = r.nilaiDefault;
   });
 
-  // 4. Insert setiap row
-  for (const row of rows) {
-    currentNumber += 1; // ID internal tetap increment
+  // ✅ Gunakan transaction untuk batch insert - atomic, tidak ada partial insert
+  db.transaction((tx) => {
+    for (const row of rows) {
+      const prefix = row.prefix || jenis.prefixKode;
+      const nomor_arsip = row.nomor_arsip ? String(row.nomor_arsip) : "";
 
-    // Ambil prefix dan nomor_arsip dari input user
-    const prefix = row.prefix || defaultPrefix;
-    const nomor_arsip = row.nomor_arsip ? String(row.nomor_arsip) : "";
-    
-    // Gabungkan: Default Value + Input User + System Value
-    const finalRow = {
-      ...defaultMap,  // Default values dulu
-      ...row,         // User input (override default)
-      // System fields (tidak bisa di-override)
-      id: currentNumber,  // ID internal sebagai integer
-      nomor_arsip: nomor_arsip,  // nomor_arsip sebagai string dari user
-      prefix: prefix,
-      created_at: new Date().toISOString(),
-      created_by: userId,
-    };
+      const finalRow: Record<string, any> = {
+        ...defaultMap,
+        ...row,
+        nomor_arsip,
+        prefix,
+        created_at: new Date().toISOString(),
+        created_by: verifiedUserId,
+      };
 
-    // Pastikan semua kolom terisi (tidak ada yang undefined/null)
-    Object.keys(finalRow).forEach(key => {
-      if (finalRow[key] === undefined || finalRow[key] === null) {
-        finalRow[key] = '';
-      }
-    });
+      // Buang key yang undefined/null jadi string kosong
+      Object.keys(finalRow).forEach((key) => {
+        if (finalRow[key] === undefined || finalRow[key] === null) {
+          finalRow[key] = "";
+        }
+      });
 
-    const columns = Object.keys(finalRow);
-    const values = Object.values(finalRow);
+      const columns = Object.keys(finalRow);
+      const values = Object.values(finalRow);
 
-    // Escape string untuk mencegah error SQL sederhana
-    const valuesSql = values.map((v) =>
-      typeof v === "string" ? `'${v.replace(/'/g, "''")}'` : (v ?? "NULL"),
-    );
+      const valuesSql = values.map((v) =>
+        typeof v === "string" ? `'${v.replace(/'/g, "''")}'` : (v ?? "NULL")
+      );
 
-    // Insert data
-    await db.run(
-      sql.raw(`
-        INSERT INTO ${tableName} (${columns.join(",")})
-        VALUES (${valuesSql.join(",")})
-      `),
-    );
+      tx.run(
+        sql.raw(
+          `INSERT INTO ${tableName} (${columns.join(",")}) VALUES (${valuesSql.join(",")})`
+        )
+      );
 
-    // Logging
-    await db.run(
-      sql`INSERT INTO log_aktivitas (user_id, aksi, entity, entity_id, detail)
-      VALUES (${userId}, 'INSERT_ARSIP', ${tableName}, ${currentNumber}, 'Input Bulk Spreadsheet')`
-    );
-  }
+      tx.run(
+        sql`INSERT INTO log_aktivitas (user_id, aksi, entity, detail)
+            VALUES (${verifiedUserId}, 'INSERT_ARSIP', ${tableName}, 'Input Bulk Spreadsheet')`
+      );
+    }
+  });
 
   revalidatePath("/arsip");
-
   return { success: true };
 }
 
 export async function getLastNomorArsip(jenisId: number): Promise<string> {
+  await requireLogin();
+
   try {
-    // 1. Cari info tabel berdasarkan jenisId
     const jenis = await db.query.jenisArsip.findFirst({
       where: eq(jenisArsip.id, jenisId),
     });
@@ -216,13 +153,8 @@ export async function getLastNomorArsip(jenisId: number): Promise<string> {
     if (!jenis) return "";
 
     const tableName = jenis.namaTabel;
+    if (!/^[a-zA-Z0-9_]+$/.test(tableName)) return "";
 
-    // Validasi nama tabel (security check)
-    if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
-      return "";
-    }
-
-    // 2. Query nomor_arsip terakhir yang berupa angka
     const result: any = await db.get(
       sql.raw(`
         SELECT nomor_arsip 
@@ -233,12 +165,7 @@ export async function getLastNomorArsip(jenisId: number): Promise<string> {
       `)
     );
 
-    // Jika tabel kosong atau tidak ada nomor yang valid, return kosong
-    if (!result || !result.nomor_arsip) {
-      return "";
-    }
-    
-    // Return nomor terakhir sebagai string
+    if (!result || !result.nomor_arsip) return "";
     return String(result.nomor_arsip);
   } catch (error) {
     console.error("Error fetching last nomor arsip:", error);
