@@ -128,7 +128,6 @@ export default function UserTableClient({ initialUsers }: { initialUsers: User[]
                   <SelectContent>
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="staff">Staff</SelectItem>
-                    <SelectItem value="viewer">Viewer</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -286,9 +286,6 @@ export function Sidebar() {
                 <span className="text-[13px] font-semibold text-slate-200 truncate max-w-[120px]">
                   {user?.username || "Guest User"}
                 </span>
-                <span className="text-[10px] text-slate-500 capitalize">
-                  {user?.role || "Viewer"}
-                </span>
               </>
             )}
           </div>
