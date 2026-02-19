@@ -53,7 +53,6 @@ export default function ExportArsipPage() {
   const { toast } = useToast();
   const [listJenis, setListJenis] = useState<JenisArsip[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterTahun, setFilterTahun] = useState<string>("all");
 
   const [selectedJenis, setSelectedJenis] = useState<JenisArsip | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -93,7 +92,6 @@ export default function ExportArsipPage() {
       // Fetch data
       const res = await getArsipForExport({
         jenisId: String(selectedJenis.id),
-        tahun: filterTahun === "all" ? undefined : filterTahun,
       });
 
       if (res.success && res.data && res.data.length > 0) {
@@ -102,12 +100,11 @@ export default function ExportArsipPage() {
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Data Arsip");
 
-        const tahunLabel = filterTahun === "all" ? "Semua Tahun" : filterTahun;
         // Sanitasi nama file
         const safeName = selectedJenis.nama
           .replace(/[^a-z0-9]/gi, "_")
           .toLowerCase();
-        const fileName = `Export_${safeName}_${tahunLabel}.xlsx`;
+        const fileName = `Export_${safeName}.xlsx`;
 
         XLSX.writeFile(workbook, fileName);
         
@@ -155,26 +152,6 @@ export default function ExportArsipPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-          </div>
-
-          {/* Filter Tahun */}
-          <div className="w-full sm:w-[150px]">
-            <Select value={filterTahun} onValueChange={setFilterTahun}>
-              <SelectTrigger className="bg-white">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Filter className="h-4 w-4" />
-                  <SelectValue placeholder="Tahun" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Semua Tahun</SelectItem>
-                {years.map((y) => (
-                  <SelectItem key={y} value={String(y)}>
-                    {y}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
         </div>
       </div>
@@ -248,10 +225,6 @@ export default function ExportArsipPage() {
               <br />
               <span className="font-semibold text-gray-900 mt-2 block">
                 Jenis: {selectedJenis?.nama}
-              </span>
-              <span className="font-semibold text-gray-900 block">
-                Filter Tahun:{" "}
-                {filterTahun === "all" ? "Semua Tahun" : filterTahun}
               </span>
               <br />
               Proses ini akan menghasilkan file Excel (.xlsx). Lanjutkan?

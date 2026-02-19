@@ -2,11 +2,18 @@
 // Setup database dengan WAL mode dan busy timeout
 
 import Database from "better-sqlite3";
+import path from "path";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "./schema";
-import path from "path";
+// FIX: Hapus prefix 'file:' jika terbawa dari format Prisma/Env lama
+const envUrl = process.env.DATABASE_URL!;
+const cleanUrl = envUrl.replace("file: ", "");
 
-const DB_PATH = path.join(process.cwd(), "arsip_dinsos.db");
+
+// Pastikan path-nya benar
+const DB_PATH = process.env.NODE_ENV === "production" ? cleanUrl : path.join(process.cwd(), cleanUrl);
+console.log("DB_PATH =", DB_PATH);
+
 
 const sqlite = new Database(DB_PATH);
 

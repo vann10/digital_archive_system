@@ -9,6 +9,7 @@ import { Button } from "@/src/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/card";
 import { BackupButton } from "@/src/components/dashboard/backup-button";
 import { ActivityLog } from "@/src/components/dashboard/activity-log";
+import { getSessionUser } from "@/src/lib/auth-helpers"; // ← tambahkan import ini
 import {
   Plus,
   FileSpreadsheet,
@@ -18,8 +19,10 @@ import {
 } from "lucide-react";
 
 export default async function DashboardPage() {
-  const { stats, arsipPerBulan, jenisDistribution, logAktivitasList } =
-    await getAllDashboardData();
+  const [{ stats, arsipPerBulan, jenisDistribution, logAktivitasList }, sessionUser] =
+    await Promise.all([getAllDashboardData(), getSessionUser()]); // ← fetch session sekalian
+
+  const isAdmin = sessionUser?.role === "admin"; // ← cek role
 
   return (
     <div className="space-y-3 -mx-5 animate-in fade-in slide-in-from-bottom-4 duration-700 zoom-dashboard">
@@ -39,7 +42,7 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-700">Quick Actions</h2>
             {/* Backup Button - hanya tampil untuk admin */}
-            <BackupButton />
+            {isAdmin && <BackupButton />} {/* ← render kondisional berdasarkan role */}
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <Button

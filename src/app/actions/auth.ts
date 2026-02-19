@@ -20,7 +20,7 @@ export async function login(prevState: any, formData: FormData) {
   try {
     // Cari user berdasarkan username
     const existingUser = await db
-      .select()
+      .select() 
       .from(users)
       .where(eq(users.username, username))
       .limit(1);
@@ -52,11 +52,21 @@ export async function login(prevState: any, formData: FormData) {
 
     // Simpan session (1 hari)
     const cookieStore = await cookies();
+    
+    // Tentukan apakah harus secure (hanya true jika pakai HTTPS beneran)
+    // Untuk akses IP lokal (HTTP), ini WAJIB false.
+    const isProductionSSL = process.env.NODE_ENV === "production" && process.env.USE_HTTPS === "true";
+
     cookieStore.set("user_session", sessionData, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      
+      // UBAH BARIS INI:
+      // Jangan paksa true hanya karena production, karena kamu akses via HTTP IP Lokal
+      secure: false, // <-- Set false agar bisa login via 192.168...
+      
       maxAge: 60 * 60 * 24, // 24 jam
       path: "/",
+      sameSite: "lax", // Tambahkan ini agar cookie tidak hilang saat redirect
     });
   } catch (error) {
     console.error("Login error:", error);

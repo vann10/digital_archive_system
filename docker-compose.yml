@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  app:
+    build: .
+    container_name: arsip_app
+    ports:
+      - "3000:3000"
+    volumes:
+      # Pastikan di laptopmu ada folder "data" berisi "arsip_dinsos.db"
+      - ./data:/app/data
+    env_file:
+      - .env.docker
+    restart: unless-stopped

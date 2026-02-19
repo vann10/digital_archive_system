@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Button } from "@/src/components/ui/button";
-import { backupDatabase } from "@/src/app/actions/dashboard";
 import { DatabaseBackup, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 
 export function BackupButton() {
@@ -14,17 +13,37 @@ export function BackupButton() {
     setStatus(null);
 
     try {
-      const result = await backupDatabase();
-      if (result.success) {
-        setStatus({ type: "success", message: result.message });
-      } else {
-        setStatus({ type: "error", message: result.message });
+      // Panggil route API untuk mendapatkan file database sebagai binary
+      const response = await fetch("/api/backup-database", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || "Backup gagal");
       }
+
+      // Ambil nama file dari header Content-Disposition
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      const fileName = match?.[1] ?? `arsip_dinsos_backup_${Date.now()}.db`;
+
+      // Konversi response ke blob lalu trigger download
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      setStatus({ type: "success", message: `Berhasil diunduh: ${fileName}` });
     } catch (err: any) {
       setStatus({ type: "error", message: err.message || "Backup gagal" });
     } finally {
       setLoading(false);
-      // Auto-dismiss setelah 4 detik
       setTimeout(() => setStatus(null), 4000);
     }
   }
@@ -54,7 +73,7 @@ export function BackupButton() {
         onClick={handleBackup}
         disabled={loading}
         className="h-8 text-xs gap-1.5 border-slate-300 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700 transition-colors"
-        title="Backup database ke folder /backups"
+        title="Unduh backup database ke komputer"
       >
         {loading ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
