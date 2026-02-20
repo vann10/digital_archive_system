@@ -137,8 +137,24 @@ export async function getArsipList(
     const totalItems = totalResult?.count || 0;
     const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
+    // Enrich setiap item dengan metadata yang dibutuhkan ArsipDetailDialog
+    const schemaConfigForDialog = schema.map((col: any) => ({
+      id: col.nama_kolom,
+      label: col.label_kolom,
+      type: col.tipe_data?.toLowerCase() === "longtext" ? "longtext"
+           : col.tipe_data?.toLowerCase() === "number" ? "number"
+           : "text",
+    }));
+
+    const enrichedData = (data as any[]).map((item) => ({
+      ...item,
+      jenisNama: jenis.namaJenis,
+      schemaConfig: JSON.stringify(schemaConfigForDialog),
+      createdAt: item.created_at ?? item.createdAt ?? null,
+    }));
+
     return {
-      data,
+      data: enrichedData,
       meta: { totalItems, totalPages, currentPage: page, currentJenisId: targetJenisId },
       dynamicSchema: visibleColumns,
     };

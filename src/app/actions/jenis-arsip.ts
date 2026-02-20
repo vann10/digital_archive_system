@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "../../db";
 import { jenisArsip, schemaConfig } from "../../db/schema";
 import { eq, sql, like, and, asc } from "drizzle-orm";
-import { requireLogin, requireAdmin } from "../../lib/auth-helpers";
+import { requireLogin} from "../../lib/auth-helpers";
 
 function generateSafeTableName(name: string) {
   const cleanName = name.toLowerCase().trim()
@@ -88,7 +88,7 @@ export async function getJenisArsipDetail(id: number) {
 
 export async function saveJenisArsip(prevState: any, formData: FormData) {
   // Hanya admin yang boleh membuat/mengedit jenis arsip
-  await requireAdmin();
+  await requireLogin();
 
   const id = formData.get("id");
   const namaJenis = formData.get("nama_jenis") as string;
@@ -182,8 +182,7 @@ export async function saveJenisArsip(prevState: any, formData: FormData) {
 }
 
 export async function deleteJenisArsip(id: number) {
-  // Hanya admin yang boleh menghapus jenis arsip
-  await requireAdmin();
+  await requireLogin();
 
   try {
     const jenis = await db.query.jenisArsip.findFirst({
@@ -191,16 +190,35 @@ export async function deleteJenisArsip(id: number) {
       columns: { namaTabel: true },
     });
 
-    if (!jenis) return { success: false, message: "Data tidak ditemukan" };
+    if (!jenis) {
+      return { success: false, message: "Data tidak ditemukan" };
+    }
+
+    const tableName = jenis.namaTabel;
+
+    // 🔒 WAJIB: validasi nama tabel (hindari SQL injection)
+    if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+      return { success: false, message: "Nama tabel tidak valid." };
+    }
 
     db.transaction((tx) => {
-      tx.delete(schemaConfig).where(eq(schemaConfig.jenisId, id)).run();
-      tx.delete(jenisArsip).where(eq(jenisArsip.id, id)).run();
-      tx.run(sql.raw(`DROP TABLE IF EXISTS ${jenis.namaTabel}`));
+      // 1️⃣ Drop tabel arsip dinamis dulu
+      tx.run(sql.raw(`DROP TABLE IF EXISTS ${tableName}`));
+
+      // 2️⃣ Hapus schema config
+      tx.delete(schemaConfig)
+        .where(eq(schemaConfig.jenisId, id))
+        .run();
+
+      // 3️⃣ Hapus jenis arsip
+      tx.delete(jenisArsip)
+        .where(eq(jenisArsip.id, id))
+        .run();
     });
 
     revalidatePath("/arsip/jenis");
-    return { success: true, message: "Jenis arsip dan data terkait berhasil dihapus." };
+    return { success: true, message: "Jenis arsip dan tabel berhasil dihapus." };
+
   } catch (error) {
     console.error("Gagal menghapus jenis arsip:", error);
     return { success: false, message: "Gagal menghapus data." };

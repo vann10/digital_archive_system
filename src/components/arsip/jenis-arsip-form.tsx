@@ -27,7 +27,7 @@ const SYSTEM_FIELDS: SchemaField[] = [
   { id: "tingkatPerkembangan", label: "Tingkat Perkembangan", type: "select", required: false, isSystem: false, options: ["Asli", "Salinan", "Tembusan"] },
   { id: "mediaSimpan", label: "Media Simpan", type: "text", required: false, isSystem: false },
   { id: "kondisiFisik", label: "Kondisi Fisik", type: "text", required: false, isSystem: false },
-  { id: "jumlahBerkas", label: "Jumlah Berkas", type: "number", required: false, isSystem: false },
+  { id: "jumlahBerkas", label: "Jumlah Berkas", type: "text", required: false, isSystem: false },
 
   // 3. Lokasi Simpan
   { id: "ruang", label: "Ruang", type: "text", required: false, isSystem: false },

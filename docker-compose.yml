@@ -7,7 +7,6 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      # Pastikan di laptopmu ada folder "data" berisi "arsip_dinsos.db"
       - ./data:/app/data
     env_file:
       - .env.docker
